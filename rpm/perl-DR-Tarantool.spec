@@ -1,4 +1,4 @@
-Name:           perl-DR-Tarantool
+Name:           DR-Tarantool
 Version:        0.38
 Release:        1
 Summary:        A Perl driver for Tarantool
@@ -20,7 +20,7 @@ It is built on top of AnyEvent - an asynchronous event framework, and is therefo
 
 
 %prep
-%setup -q -n DR-Tarantool-%{version}
+%setup -q -c DR-Tarantool-%{version}
 
 %build
 CFLAGS="$RPM_OPT_FLAGS" %{__perl} Makefile.PL INSTALLDIRS=vendor

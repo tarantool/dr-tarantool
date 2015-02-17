@@ -1,4 +1,4 @@
-Source: libdr-tarantool-perl
+Source: tarantool-perl
 Section: perl
 Homepage: http://search.cpan.org/dist/DR-Tarantool/
 Maintainer: Dmitry E. Oboukhov <unera@debian.org>
