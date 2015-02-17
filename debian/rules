@@ -12,7 +12,6 @@ PERLVERSION = $(shell grep '^our[[:space:]]\+$$VERSION' $(MAIN_MODULE) \
 	|awk '{print $$4}'|sed "s/[';']//g" )
 
 install/tarantool-perl::
-	test $(DEBVERSION) = $(PERLVERSION)
 	make tardist
 
 clean::
