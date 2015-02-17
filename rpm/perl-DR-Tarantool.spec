@@ -33,9 +33,9 @@ find $RPM_BUILD_ROOT -type f -name .packlist -exec rm -f {} ';'
 find $RPM_BUILD_ROOT -type f -name '*.bs' -empty -exec rm -f {} ';'
 find $RPM_BUILD_ROOT -type d -depth -exec rmdir {} 2>/dev/null ';'
 
-%check || :
-mv t/010-xs.t t/010-xs.t.disabled
-make test
+#%check || :
+#mv t/010-xs.t t/010-xs.t.disabled
+#make test
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -43,16 +43,20 @@ rm -rf $RPM_BUILD_ROOT
 
 %files
 %defattr(-,root,root,-)
-%doc README.pod
+#%doc README.pod
 %{perl_vendorarch}/DR/
 %{perl_vendorarch}/auto/DR/Tarantool/Tarantool.so
-/usr/share/man/man3/DR::README.3pm.gz
-/usr/share/man/man3/DR::Tarantool.3pm.gz
-/usr/share/man/man3/DR::Tarantool::AsyncClient.3pm.gz
-/usr/share/man/man3/DR::Tarantool::CoroClient.3pm.gz
-/usr/share/man/man3/DR::Tarantool::Iterator.3pm.gz
-/usr/share/man/man3/DR::Tarantool::LLClient.3pm.gz
-/usr/share/man/man3/DR::Tarantool::Spaces.3pm.gz
-/usr/share/man/man3/DR::Tarantool::StartTest.3pm.gz
-/usr/share/man/man3/DR::Tarantool::SyncClient.3pm.gz
-/usr/share/man/man3/DR::Tarantool::Tuple.3pm.gz
+#%{_mandir}/man3/DR::README.3pm.gz
+%{_mandir}/man3/DR::Tarantool.3pm.gz
+%{_mandir}/man3/DR::Tarantool::AsyncClient.3pm.gz
+%{_mandir}/man3/DR::Tarantool::CoroClient.3pm.gz
+%{_mandir}/man3/DR::Tarantool::Iterator.3pm.gz
+%{_mandir}/man3/DR::Tarantool::LLClient.3pm.gz
+%{_mandir}/man3/DR::Tarantool::MsgPack.3pm.gz
+%{_mandir}/man3/DR::Tarantool::MsgPack::AsyncClient.3pm.gz
+%{_mandir}/man3/DR::Tarantool::RealSyncClient.3pm.gz
+%{_mandir}/man3/DR::Tarantool::Spaces.3pm.gz
+%{_mandir}/man3/DR::Tarantool::StartTest.3pm.gz
+%{_mandir}/man3/DR::Tarantool::SyncClient.3pm.gz
+%{_mandir}/man3/DR::Tarantool::Tuple.3pm.gz
+%{_mandir}/man3/DR::Tarantool::Tuple::MsgPack.3pm.gz
