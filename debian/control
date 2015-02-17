@@ -12,9 +12,9 @@ Build-Depends: debhelper (>= 7), cdbs,
  liblist-moreutils-perl
 Standards-Version: 3.9.5
 Priority: extra
-VCS-Browser: https://github.com/dr-co/dr-tarantool
+VCS-Browser: https://github.com/tarantool/dr-tarantool
 
-Package: libdr-tarantool-perl
+Package: tarantool-perl
 Depends: ${perl:Depends}, ${misc:Depends}, ${shlibs:Depends},
  libanyevent-perl,
  libjson-xs-perl,

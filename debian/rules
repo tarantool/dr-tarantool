@@ -11,7 +11,7 @@ PERLVERSION = $(shell grep '^our[[:space:]]\+$$VERSION' $(MAIN_MODULE) \
 	|head -n 1 \
 	|awk '{print $$4}'|sed "s/[';']//g" )
 
-install/libdr-tarantool-perl::
+install/tarantool-perl::
 	test $(DEBVERSION) = $(PERLVERSION)
 	make tardist
 
@@ -27,8 +27,8 @@ tarball:
 	cd .. && tar \
 		--exclude=debian \
 		--exclude=.git \
-		-czf libdr-tarantool-perl_$(DEBVERSION).orig.tar.gz \
-		libdr-tarantool-perl-$(DEBVERSION)
+		-czf tarantool-perl_$(DEBVERSION).orig.tar.gz \
+		tarantool-perl-$(DEBVERSION)
 
 
 DEB_INSTALL_CHANGELOGS_ALL :=
