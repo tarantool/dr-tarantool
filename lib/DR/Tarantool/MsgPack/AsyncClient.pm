@@ -87,11 +87,6 @@ sub connect {
 
     my $user        = delete $opts{user};
     my $password    = delete $opts{password};
-
-    my $spaces = Scalar::Util::blessed($opts{spaces}) ?
-        $opts{spaces} : DR::Tarantool::Spaces->new($opts{spaces});
-    $spaces->family(2);
-
     my $reconnect_period    = $opts{reconnect_period} || 0;
     my $reconnect_always    = $opts{reconnect_always} || 0;
 
@@ -108,17 +103,110 @@ sub connect {
             if (ref $client) {
                 $self = bless {
                     llc         => $client,
-                    spaces      => $spaces,
                 } => ref($class) || $class;
             } else {
                 $self = $client;
             }
-
-            $cb->( $self );
+            $self->_load_schema($cb);
         }
     );
 
     return;
+}
+
+sub _load_schema {
+    my ( $self, $cb ) = @_;
+
+    my %spaces = ();
+    my ( $get_spaces_cb, $get_indexes_cb );
+
+    # get numbers of existing non-service spaces
+    $get_spaces_cb = sub {
+        my ( $status, $data ) = @_;
+        croak 'cannot call lua "box.space._vindex:select"' unless $status eq 'ok';
+        my $next = $data;
+        LOOP: {
+            do {{
+                last LOOP unless $next;
+                my $raw = $next->raw;
+                # $raw structure:
+                # [space_no, uid, space_name, engine, field_count, {temporary}, [format]]
+
+                next unless $raw->[2];     # no space name
+                next if $raw->[2] =~ /^_/; # skip service spaces
+
+                $spaces{$raw->[0]} =
+                    {
+                        name   => $raw->[2],
+                        fields => [
+                                    map { $_->{type} = uc($_->{type}); $_ }
+                                        @{ ref $raw->[6] eq 'ARRAY' ? $raw->[6] : [$raw->[6]] }
+                                  ],
+                    }
+            }} while ($next = $next->next);
+        }
+
+        DR::Tarantool::MsgPack::AsyncClient::call_lua($self,'box.space._vindex:select' => [], $get_indexes_cb);
+    };
+
+    # get index structure for each of spaces we got
+    $get_indexes_cb = sub {
+        my ( $status, $data ) = @_;
+        croak 'cannot call lua "box.space._vindex:select"' unless $status eq 'ok';
+        my $next = $data;
+        LOOP2: {
+            do {{
+                last LOOP2 unless $next;
+                my $raw = $next->raw;
+                # $raw structure:
+                # [space_no, index_no, index_name, index_type, {params}, [fields] ]
+
+                my $space_no = $raw->[0];
+                next unless exists $spaces{$space_no};
+
+                unless ( defined($raw->[1]) and defined($raw->[2]) ) {
+                    delete $spaces{$space_no};
+                    next;
+                }
+                $spaces{$space_no}->{indexes}{$raw->[1]} =
+                    {
+                        name => $raw->[2],
+                        fields => [ map { $_->[0] } @{ $raw->[5] } ],
+                    };
+
+                # add to fields array ones found in 'indexes'
+                # but not present in 'fields'
+                my $were_fields_count = scalar @{ $spaces{$space_no}->{fields} };
+                push @{ $spaces{$space_no}->{fields} },
+                    map { { type => uc($_->[1]) }  } @{ $raw->[5] }[ $were_fields_count .. $#{$raw->[5]} ];
+
+            }} while ($next = $next->next);
+        }
+
+        for my $space ( keys %spaces ) {
+            unless ( $spaces{$space}{fields} ) {
+                delete $spaces{$space};
+                next;
+            }
+            unless ( $spaces{$space}{indexes} ) {
+                delete $spaces{$space};
+                next;
+            }
+            for my $index ( values %{$spaces{$space}->{indexes}} ) {
+                @{ $index->{fields} } =
+                    map { exists $spaces{$space}{fields}[$_]{name} ? $spaces{$space}{fields}[$_]{name} : $_ }
+                        @{ $index->{fields} };
+            }
+        }
+        $self->{spaces} = DR::Tarantool::Spaces->new(\%spaces);
+        $self->{spaces}->family(2);
+
+        $cb->($self);
+    };
+
+    DR::Tarantool::MsgPack::AsyncClient::call_lua($self, 'box.space._space:select' => [], $get_spaces_cb);
+
+    return $self;
 }
 
 sub _llc { return $_[0]{llc} if ref $_[0]; 'DR::Tarantool::MsgPack::LLClient' }
