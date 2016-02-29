@@ -158,7 +158,7 @@ sub call_lua {
     }
 
     my $id = $self->_req_id;
-    my $pkt = DR::Tarantool::MsgPack::Proto::call_lua($id, $proc, $tuple);
+    my $pkt = DR::Tarantool::MsgPack::Proto::_call_lua($id, $proc, $tuple);
     $self->_request($id, $pkt, $cb);
     return;
 }
