@@ -123,7 +123,7 @@ sub _load_schema {
     # get numbers of existing non-service spaces
     $get_spaces_cb = sub {
         my ( $status, $data ) = @_;
-        croak 'cannot call lua "box.space._vindex:select"' unless $status eq 'ok';
+        croak 'cannot call lua "box.space._space:select"' unless $status eq 'ok';
         my $next = $data;
         LOOP: {
             do {{
@@ -154,9 +154,9 @@ sub _load_schema {
         my ( $status, $data ) = @_;
         croak 'cannot call lua "box.space._vindex:select"' unless $status eq 'ok';
         my $next = $data;
-        LOOP2: {
+        LOOP: {
             do {{
-                last LOOP2 unless $next;
+                last LOOP unless $next;
                 my $raw = $next->raw;
                 # $raw structure:
                 # [space_no, index_no, index_name, index_type, {params}, [fields] ]
@@ -201,7 +201,7 @@ sub _load_schema {
         $self->{spaces} = DR::Tarantool::Spaces->new(\%spaces);
         $self->{spaces}->family(2);
 
-        $cb->($self);
+        $self->set_schema_id($cb);
     };
 
     DR::Tarantool::MsgPack::AsyncClient::call_lua($self, 'box.space._space:select' => [], $get_spaces_cb);
@@ -213,8 +213,13 @@ sub _llc { return $_[0]{llc} if ref $_[0]; 'DR::Tarantool::MsgPack::LLClient' }
 
 
 sub _cb_default {
-    my ($res, $s, $cb) = @_;
+    my ($res, $s, $cb, $connect_obj, $caller_sub) = @_;
     if ($res->{status} ne 'ok') {
+        if ($res->{CODE} == 32877) { # wrong schema_id, need reload
+            $connect_obj->{SCHEMA_ID} = undef;
+            $connect_obj->_load_schema($caller_sub);
+            return;
+        }
         $cb->($res->{status} => $res->{CODE}, $res->{ERROR});
         return;
     }
@@ -357,14 +362,32 @@ Field number or name.
 =cut
 
 
+sub set_schema_id {
+    my $self = shift;
+    my $cb = pop;
 
+    $self->_llc->_check_cb( $cb );
+    $self->_llc->ping(
+        sub {
+            my ( $res ) = @_;
+            if ($res->{status} ne 'ok') {
+                croak 'cannot perform ping in order to get schema_id '
+                    . "status=$res->{status}, code=$res->{CODE}, error=$res->{ERROR}";
+                return;
+            }
+
+            $self->{SCHEMA_ID} = $res->{SCHEMA_ID};
+            $cb->($self);
+            return;
+    });
+}
 
 sub ping {
     my $self = shift;
     my $cb = pop;
 
     $self->_llc->_check_cb( $cb );
-    $self->_llc->ping(sub { _cb_default($_[0], undef, $cb) });
+    $self->_llc->ping(sub { _cb_default($_[0], undef, $cb, $self) });
 }
 
 sub insert {
@@ -387,14 +410,20 @@ sub insert {
         $tuple = $s->pack_tuple( $tuple );
     }
 
-    $self->_llc->insert(
-        $sno,
-        $tuple,
-        sub {
-            my ($res) = @_;
-            _cb_default($res, $s, $cb);
-        }
-    );
+    my $subref = undef;
+    $subref = sub {
+        my $self = shift;
+        $self->_llc->insert(
+            $sno,
+            $tuple,
+            $self->{SCHEMA_ID},
+            sub {
+                my ($res) = @_;
+                _cb_default($res, $s, $cb, $self, $subref);
+            }
+        );
+    };
+    $subref->($self);
     return;
 }
 
@@ -418,14 +447,20 @@ sub replace {
         $tuple = $s->pack_tuple( $tuple );
     }
 
-    $self->_llc->replace(
-        $sno,
-        $tuple,
-        sub {
-            my ($res) = @_;
-            _cb_default($res, $s, $cb);
-        }
-    );
+    my $subref = undef;
+    $subref = sub {
+        my $self = shift;
+        $self->_llc->replace(
+            $sno,
+            $tuple,
+            $self->{SCHEMA_ID},
+            sub {
+                my ($res) = @_;
+                _cb_default($res, $s, $cb, $self, $subref);
+            }
+        );
+    };
+    $subref->($self);
     return;
 }
 
@@ -448,14 +483,20 @@ sub delete :method {
         $sno = $s->number;
     }
 
-    $self->_llc->delete(
-        $sno,
-        $key,
-        sub {
-            my ($res) = @_;
-            _cb_default($res, $s, $cb);
-        }
-    );
+    my $subref = undef;
+    $subref = sub {
+        my $self = shift;
+        $self->_llc->delete(
+            $sno,
+            $key,
+            $self->{SCHEMA_ID},
+            sub {
+                my ($res) = @_;
+                _cb_default($res, $s, $cb, $self, $subref);
+            }
+        );
+    };
+    $subref->($self);
     return;
 }
 
@@ -481,18 +522,24 @@ sub select :method {
         $sno = $s->number;
         $ino = $s->_index( $index )->{no};
     }
-    $self->_llc->select(
-        $sno,
-        $ino,
-        $key,
-        $opts{limit},
-        $opts{offset},
-        $opts{iterator},
-        sub {
-            my ($res) = @_;
-            _cb_default($res, $s, $cb);
-        }
-    );
+    my $subref = undef;
+    $subref = sub {
+        my $self = shift;
+        $self->_llc->select(
+            $sno,
+            $ino,
+            $key,
+            $opts{limit},
+            $opts{offset},
+            $opts{iterator},
+            $self->{SCHEMA_ID},
+            sub {
+                my ($res) = @_;
+                _cb_default($res, $s, $cb, $self, $subref);
+            }
+        );
+    };
+    $subref->($self);
 }
 
 sub update :method {
@@ -512,15 +559,21 @@ sub update :method {
         $sno = $s->number;
         $ops = $s->pack_operations($ops);
     }
-    $self->_llc->update(
-        $sno,
-        $key,
-        $ops,
-        sub {
-            my ($res) = @_;
-            _cb_default($res, $s, $cb);
-        }
-    );
+    my $subref = undef;
+    $subref = sub {
+        my $self = shift;
+        $self->_llc->update(
+            $sno,
+            $key,
+            $ops,
+            $self->{SCHEMA_ID},
+            sub {
+                my ($res) = @_;
+                _cb_default($res, $s, $cb, $self, $subref);
+            }
+        );
+    };
+    $subref->($self);
 }
 
 sub call_lua {
@@ -540,7 +593,7 @@ sub call_lua {
         $tuple,
         sub {
             my ($res) = @_;
-            _cb_default($res, undef, $cb);
+            _cb_default($res, undef, $cb, $self);
         }
     );
     return;
