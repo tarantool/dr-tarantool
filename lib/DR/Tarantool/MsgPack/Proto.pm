@@ -158,8 +158,9 @@ sub request($$) {
     return msgpack(length $pkt) . $pkt;
 }
 
-sub _call_lua($$$) {
+sub call_lua($$@) {
     my ($sync, $proc, $tuple) = @_;
+    $tuple ||= [];
     request
         {
             IPROTO_SYNC,            $sync,
@@ -170,11 +171,6 @@ sub _call_lua($$$) {
             IPROTO_TUPLE,           $tuple,
         }
     ;
-}
-
-sub call_lua($$@) {
-    my ($sync, $proc, @args) = @_;
-    return _call_lua($sync, $proc, \@args);
 }
 
 sub insert($$$@) {
@@ -198,7 +194,7 @@ sub insert($$$@) {
     }
 
     # HACK
-    _call_lua($sync, "box.space.$space:insert", $tuple);
+    call_lua($sync, "box.space.$space:insert", $tuple);
 }
 
 sub replace($$$@) {
@@ -221,7 +217,7 @@ sub replace($$$@) {
         ;
     }
     # HACK
-    _call_lua($sync, "box.space.$space:replace", $tuple);
+    call_lua($sync, "box.space.$space:replace", $tuple);
 }
 sub del($$$@) {
     my ($sync, $space, $key, $schema_id) = @_;
@@ -243,7 +239,7 @@ sub del($$$@) {
         ;
     }
     # HACK
-    _call_lua($sync, "box.space.$space:delete", $key);
+    call_lua($sync, "box.space.$space:delete", $key);
 }
 
 
@@ -268,7 +264,7 @@ sub update($$$$@) {
         ;
     }
     # HACK
-    _call_lua($sync, "box.space.$space:update", [ $key, $ops ]);
+    call_lua($sync, "box.space.$space:update", [ $key, $ops ]);
 }
 
 sub select($$$$;$$$@) {
@@ -304,7 +300,7 @@ sub select($$$$;$$$@) {
     }
 
     # HACK
-    _call_lua($sync, "box.space.$space.index.$index:select", [
+    call_lua($sync, "box.space.$space.index.$index:select", [
                 $key,
                 {
                     offset => $offset,
