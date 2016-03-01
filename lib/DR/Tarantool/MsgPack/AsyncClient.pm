@@ -433,7 +433,7 @@ sub insert {
             $self->{SCHEMA_ID},
             sub {
                 my ($res) = @_;
-                Scalar::Util::weaken($subref);
+                Scalar::Util::weaken($subref) unless Scalar::Util::isweak($subref);
                 _cb_default($res, $s, $cb, $self, $subref);
             }
         );
@@ -471,7 +471,7 @@ sub replace {
             $self->{SCHEMA_ID},
             sub {
                 my ($res) = @_;
-                Scalar::Util::weaken($subref);
+                Scalar::Util::weaken($subref) unless Scalar::Util::isweak($subref);
                 _cb_default($res, $s, $cb, $self, $subref);
             }
         );
@@ -508,7 +508,7 @@ sub delete :method {
             $self->{SCHEMA_ID},
             sub {
                 my ($res) = @_;
-                Scalar::Util::weaken($subref);
+                Scalar::Util::weaken($subref) unless Scalar::Util::isweak($subref);
                 _cb_default($res, $s, $cb, $self, $subref);
             }
         );
@@ -552,7 +552,7 @@ sub select :method {
             $self->{SCHEMA_ID},
             sub {
                 my ($res) = @_;
-                Scalar::Util::weaken($subref);
+                Scalar::Util::weaken($subref) unless Scalar::Util::isweak($subref);
                 _cb_default($res, $s, $cb, $self, $subref);
             }
         );
@@ -587,7 +587,7 @@ sub update :method {
             $self->{SCHEMA_ID},
             sub {
                 my ($res) = @_;
-                Scalar::Util::weaken($subref);
+                Scalar::Util::weaken($subref) unless Scalar::Util::isweak($subref);
                 _cb_default($res, $s, $cb, $self, $subref);
             }
         );
