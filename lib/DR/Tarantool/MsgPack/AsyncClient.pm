@@ -64,6 +64,7 @@ Try to reconnect even after the first unsuccessful connection.
 use DR::Tarantool::MsgPack::LLClient;
 use DR::Tarantool::Spaces;
 use DR::Tarantool::Tuple;
+use DR::Tarantool::Constants;
 use Carp;
 $Carp::Internal{ (__PACKAGE__) }++;
 use Scalar::Util ();
@@ -229,11 +230,14 @@ sub _llc { return $_[0]{llc} if ref $_[0]; 'DR::Tarantool::MsgPack::LLClient' }
 sub _cb_default {
     my ($res, $s, $cb, $connect_obj, $caller_sub) = @_;
     if ($res->{status} ne 'ok') {
-        if ($res->{CODE} == 32877) { # wrong schema_id, need reload
+        my $error_name = DR::Tarantool::Constants::get_error_name($res->{CODE});
+
+        if ( $error_name and $error_name eq 'ER_WRONG_SCHEMA_VERSION' ) {
             $connect_obj->{SCHEMA_ID} = undef;
             $connect_obj->_load_schema($caller_sub);
             return;
         }
+
         $cb->($res->{status} => $res->{CODE}, $res->{ERROR});
         return;
     }
