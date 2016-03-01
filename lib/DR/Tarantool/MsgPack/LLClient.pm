@@ -227,8 +227,9 @@ sub insert {
 
     my $space = shift;
     my $tuple = shift;
-    my $schema_id = shift;
     my $cb = pop;
+
+    my $schema_id = shift;
     $self->_check_tuple( $tuple );
     $self->_check_cb( $cb );
 
@@ -244,9 +245,9 @@ sub replace {
 
     my $space = shift;
     my $tuple = shift;
-    my $schema_id = shift;
-
     my $cb = pop;
+
+    my $schema_id = shift;
     $self->_check_tuple( $tuple );
     $self->_check_cb( $cb );
 

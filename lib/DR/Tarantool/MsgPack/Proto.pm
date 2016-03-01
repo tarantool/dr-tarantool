@@ -177,7 +177,7 @@ sub call_lua($$@) {
     return _call_lua($sync, $proc, \@args);
 }
 
-sub insert($$$$) {
+sub insert($$$@) {
     my ($sync, $space, $tuple, $schema_id) = @_;
 
     $tuple = [ $tuple ] unless ref $tuple;
@@ -201,7 +201,7 @@ sub insert($$$$) {
     _call_lua($sync, "box.space.$space:insert", $tuple);
 }
 
-sub replace($$$$) {
+sub replace($$$@) {
     my ($sync, $space, $tuple, $schema_id) = @_;
 
     $tuple = [ $tuple ] unless ref $tuple;
@@ -223,7 +223,7 @@ sub replace($$$$) {
     # HACK
     _call_lua($sync, "box.space.$space:replace", $tuple);
 }
-sub del($$$$) {
+sub del($$$@) {
     my ($sync, $space, $key, $schema_id) = @_;
 
     $key = [ $key ] unless ref $key;
@@ -247,7 +247,7 @@ sub del($$$$) {
 }
 
 
-sub update($$$$$) {
+sub update($$$$@) {
     my ($sync, $space, $key, $ops, $schema_id) = @_;
     croak 'Oplist must be Arrayref' unless 'ARRAY' eq ref $ops;
     $key = [ $key ] unless ref $key;
@@ -271,7 +271,7 @@ sub update($$$$$) {
     _call_lua($sync, "box.space.$space:update", [ $key, $ops ]);
 }
 
-sub select($$$$;$$$$) {
+sub select($$$$;$$$@) {
     my ($sync, $space, $index, $key, $limit, $offset, $iterator, $schema_id) = @_;
     $iterator = 'EQ' unless defined $iterator;
     $offset ||= 0;

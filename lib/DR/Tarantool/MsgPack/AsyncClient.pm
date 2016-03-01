@@ -87,6 +87,14 @@ sub connect {
 
     my $user        = delete $opts{user};
     my $password    = delete $opts{password};
+
+    my $spaces = undef;
+    if ($opts{spaces}) {
+        $spaces = Scalar::Util::blessed($opts{spaces}) ?
+            $opts{spaces} : DR::Tarantool::Spaces->new($opts{spaces});
+        $spaces->family(2);
+    }
+
     my $reconnect_period    = $opts{reconnect_period} || 0;
     my $reconnect_always    = $opts{reconnect_always} || 0;
 
@@ -103,6 +111,7 @@ sub connect {
             if (ref $client) {
                 $self = bless {
                     llc         => $client,
+                    spaces      => $spaces,
                 } => ref($class) || $class;
             } else {
                 $self = $client;
@@ -116,6 +125,11 @@ sub connect {
 
 sub _load_schema {
     my ( $self, $cb ) = @_;
+
+    if ( $self->{spaces} ) {
+        $cb->($self);
+        return;
+    }
 
     my %spaces = ();
     my ( $get_spaces_cb, $get_indexes_cb );
