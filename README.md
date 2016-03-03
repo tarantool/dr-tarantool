@@ -52,10 +52,10 @@ $cv->recv();
 ```
 Here we pass one more argument to `connect()` method, which is callback to be invocked when the connection has actually been established. In this callback we in turn call `select()` method with its own callback, which dumps the structure *select* returned and stops event-loop.
 
-The other methods are to be invoked in a similar way, tha functions prototypes and usage examples can be found in perldoc.
+The other methods are to be invoked in a similar way, the functions prototypes and usage examples can be found in perldoc.
 
 ### Version
-0.9
+0.44-1
 
 ### Tech
 
@@ -75,7 +75,7 @@ $ make && make install
 
 ### Development
 
-Want to contribute? Great! It's github, open issues, send pull requesets :)
+Want to contribute? Great! It's github, open issues, send pull requests :)
 
 ### TODO
 
