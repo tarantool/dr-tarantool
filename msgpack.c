@@ -111,7 +111,9 @@ void _mpack_item(SV *res, SV *o)
 		case SVt_PVIV:
 		case SVt_PVNV:
 		case SVt_PVMG:
+#if PERL_VERSION >= 11
 		case SVt_REGEXP:
+#endif
 			if (!looks_like_number(o)) {
 				s = SvPV(o, len);
 				new_len = res_len + mp_sizeof_str(len);
