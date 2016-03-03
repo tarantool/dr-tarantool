@@ -125,9 +125,9 @@ sub connect {
 }
 
 sub _load_schema {
-    my ( $self, $cb ) = @_;
+    my ( $self, $cb, $remove_old ) = @_;
 
-    if ( $self->{spaces} ) {
+    if ( !$remove_old and $self->{spaces} ) {
         $cb->($self);
         return;
     }
@@ -234,6 +234,7 @@ sub _cb_default {
 
         if ( $error_name and $error_name eq 'ER_WRONG_SCHEMA_VERSION' ) {
             $connect_obj->{SCHEMA_ID} = undef;
+            $connect_obj->{spaces}    = undef;
             $connect_obj->_load_schema($caller_sub);
             return;
         }
@@ -420,14 +421,6 @@ sub insert {
     my $sno;
     my $s;
 
-    if (Scalar::Util::looks_like_number $space) {
-        $sno = $space;
-    } else {
-        $s = $self->{spaces}->space($space);
-        $sno = $s->number,
-        $tuple = $s->pack_tuple( $tuple );
-    }
-
     my $subref = undef;
     $subref = sub {
         my $self = shift;
@@ -442,6 +435,31 @@ sub insert {
             }
         );
     };
+
+    if (Scalar::Util::looks_like_number $space) {
+        $sno = $space;
+    }
+    else {
+        eval {
+            $s = $self->{spaces}->space($space);
+            $sno = $s->number,
+            $tuple = $s->pack_tuple( $tuple );
+        };
+        if ($@) {
+            $self->_load_schema(
+            sub {
+                 my $self = shift;
+                 $s = $self->{spaces}->space($space);
+                 $sno = $s->number,
+                 $tuple = $s->pack_tuple( $tuple );
+
+                 $subref->($self);
+                 return;
+            } => 'remove old');
+            return;
+        }
+    }
+
     $subref->($self);
     return;
 }
@@ -458,14 +476,6 @@ sub replace {
     my $sno;
     my $s;
 
-    if (Scalar::Util::looks_like_number $space) {
-        $sno = $space;
-    } else {
-        $s = $self->{spaces}->space($space);
-        $sno = $s->number,
-        $tuple = $s->pack_tuple( $tuple );
-    }
-
     my $subref = undef;
     $subref = sub {
         my $self = shift;
@@ -480,6 +490,31 @@ sub replace {
             }
         );
     };
+
+    if (Scalar::Util::looks_like_number $space) {
+        $sno = $space;
+    }
+    else {
+        eval {
+            $s = $self->{spaces}->space($space);
+            $sno = $s->number,
+            $tuple = $s->pack_tuple( $tuple );
+        };
+        if ($@) {
+            $self->_load_schema(
+            sub {
+                 my $self = shift;
+                 $s = $self->{spaces}->space($space);
+                 $sno = $s->number,
+                 $tuple = $s->pack_tuple( $tuple );
+
+                 $subref->($self);
+                 return;
+            } => 'remove old');
+            return;
+        }
+    }
+
     $subref->($self);
     return;
 }
@@ -496,13 +531,6 @@ sub delete :method {
     my $sno;
     my $s;
 
-    if (Scalar::Util::looks_like_number $space) {
-        $sno = $space;
-    } else {
-        $s = $self->{spaces}->space($space);
-        $sno = $s->number;
-    }
-
     my $subref = undef;
     $subref = sub {
         my $self = shift;
@@ -517,6 +545,29 @@ sub delete :method {
             }
         );
     };
+
+    if (Scalar::Util::looks_like_number $space) {
+        $sno = $space;
+    }
+    else {
+        eval {
+            $s = $self->{spaces}->space($space);
+            $sno = $s->number,
+        };
+        if ($@) {
+            $self->_load_schema(
+            sub {
+                 my $self = shift;
+                 $s = $self->{spaces}->space($space);
+                 $sno = $s->number,
+
+                 $subref->($self);
+                 return;
+            } => 'remove old');
+            return;
+        }
+    }
+
     $subref->($self);
     return;
 }
@@ -533,16 +584,7 @@ sub select :method {
     my $sno;
     my $ino;
     my $s;
-    if (Scalar::Util::looks_like_number $space) {
-        $sno = $space;
-        croak 'If space is number, index must be number too'
-            unless Scalar::Util::looks_like_number $index;
-        $ino = $index;
-    } else {
-        $s = $self->{spaces}->space($space);
-        $sno = $s->number;
-        $ino = $s->_index( $index )->{no};
-    }
+
     my $subref = undef;
     $subref = sub {
         my $self = shift;
@@ -561,7 +603,35 @@ sub select :method {
             }
         );
     };
+
+    if (Scalar::Util::looks_like_number $space) {
+        $sno = $space;
+        croak 'If space is number, index must be number too'
+            unless Scalar::Util::looks_like_number $index;
+        $ino = $index;
+    }
+    else {
+        eval {
+            $s = $self->{spaces}->space($space);
+            $sno = $s->number;
+            $ino = $s->_index( $index )->{no};
+        };
+        if ($@) {
+            $self->_load_schema(
+            sub {
+                 my $self = shift;
+                 $s = $self->{spaces}->space($space);
+                 $sno = $s->number;
+                 $ino = $s->_index( $index )->{no};
+
+                 $subref->($self);
+                 return;
+            } => 'remove old');
+            return;
+        }
+    }
     $subref->($self);
+    return;
 }
 
 sub update :method {
@@ -574,13 +644,7 @@ sub update :method {
 
     my $sno;
     my $s;
-    if (Scalar::Util::looks_like_number $space) {
-        $sno = $space;
-    } else {
-        $s = $self->{spaces}->space($space);
-        $sno = $s->number;
-        $ops = $s->pack_operations($ops);
-    }
+
     my $subref = undef;
     $subref = sub {
         my $self = shift;
@@ -596,7 +660,33 @@ sub update :method {
             }
         );
     };
+
+    if (Scalar::Util::looks_like_number $space) {
+        $sno = $space;
+    }
+    else {
+        eval {
+            $s = $self->{spaces}->space($space);
+            $sno = $s->number;
+            $ops = $s->pack_operations($ops);
+        };
+        if ($@) {
+            $self->_load_schema(
+            sub {
+                 my $self = shift;
+                 $s = $self->{spaces}->space($space);
+                 $sno = $s->number;
+                 $ops = $s->pack_operations($ops);
+
+                 $subref->($self);
+                 return;
+            } => 'remove old');
+            return;
+        }
+    }
+
     $subref->($self);
+    return;
 }
 
 sub call_lua {
