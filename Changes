@@ -1,4 +1,4 @@
-tarantool-perl repo (0.44-1)
+tarantool-perl repo (0.45)
 
   * Fixed: now call_lua() works with multiple arguments
   * Added: automatic schema loading + tests, closes: #2
