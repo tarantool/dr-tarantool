@@ -219,7 +219,7 @@ sub _load_schema {
         $self->set_schema_id($cb);
     };
 
-    DR::Tarantool::MsgPack::AsyncClient::call_lua($self, 'box.space._space:select' => [], $get_spaces_cb);
+    DR::Tarantool::MsgPack::AsyncClient::call_lua($self, 'box.space._vspace:select' => [], $get_spaces_cb);
 
     return $self;
 }
