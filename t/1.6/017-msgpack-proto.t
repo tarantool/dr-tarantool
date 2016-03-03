@@ -36,12 +36,12 @@ note 'call';
 }
 
 {
-    my ($p) = response call_lua(121, 'test', 1, [2, 3], 4);
+    my ($p) = response call_lua(121, 'test', [1, 2, 3, 4]);
     is_deeply $p => {
         CODE            => 'CALL',
         FUNCTION_NAME   => 'test',
         SYNC            => 121,
-        TUPLE           => [1, [2, 3], 4]
+        TUPLE           => [1, 2, 3, 4]
     }, 'Call request';
 }
 
