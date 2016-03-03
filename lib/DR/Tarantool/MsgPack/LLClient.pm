@@ -209,12 +209,13 @@ sub select {
     my $limit = shift;
     my $offset = shift;
     my $iterator = shift;
+    my $schema_id = shift;
 
     $self->_check_cb( $cb );
 
     my $id = $self->_req_id;
     my $pkt = DR::Tarantool::MsgPack::Proto::select(
-        $id, $space, $index, $key, $limit, $offset, $iterator);
+        $id, $space, $index, $key, $limit, $offset, $iterator, $schema_id);
 
     $self->_request($id, $pkt, $cb);
     return;
@@ -227,11 +228,13 @@ sub insert {
     my $space = shift;
     my $tuple = shift;
     my $cb = pop;
+
+    my $schema_id = shift;
     $self->_check_tuple( $tuple );
     $self->_check_cb( $cb );
 
     my $id = $self->_req_id;
-    my $pkt = DR::Tarantool::MsgPack::Proto::insert($id, $space, $tuple);
+    my $pkt = DR::Tarantool::MsgPack::Proto::insert($id, $space, $tuple, $schema_id);
 
     $self->_request($id, $pkt, $cb);
     return;
@@ -243,11 +246,13 @@ sub replace {
     my $space = shift;
     my $tuple = shift;
     my $cb = pop;
+
+    my $schema_id = shift;
     $self->_check_tuple( $tuple );
     $self->_check_cb( $cb );
 
     my $id = $self->_req_id;
-    my $pkt = DR::Tarantool::MsgPack::Proto::replace($id, $space, $tuple);
+    my $pkt = DR::Tarantool::MsgPack::Proto::replace($id, $space, $tuple, $schema_id);
 
     $self->_request($id, $pkt, $cb);
     return;
@@ -259,9 +264,10 @@ sub delete:method {
     $self->_check_cb($cb);
     my $space = shift;
     my $key = shift;
+    my $schema_id = shift;
 
     my $id = $self->_req_id;
-    my $pkt = DR::Tarantool::MsgPack::Proto::del($id, $space, $key);
+    my $pkt = DR::Tarantool::MsgPack::Proto::del($id, $space, $key, $schema_id);
     $self->_request($id, $pkt, $cb);
     return;
 }
@@ -274,10 +280,11 @@ sub update {
     my $space = shift;
     my $key = shift;
     my $ops = shift;
+    my $schema_id = shift;
 
 
     my $id = $self->_req_id;
-    my $pkt = DR::Tarantool::MsgPack::Proto::update($id, $space, $key, $ops);
+    my $pkt = DR::Tarantool::MsgPack::Proto::update($id, $space, $key, $ops, $schema_id);
     $self->_request($id, $pkt, $cb);
     return;
 }

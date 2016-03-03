@@ -64,6 +64,7 @@ Try to reconnect even after the first unsuccessful connection.
 use DR::Tarantool::MsgPack::LLClient;
 use DR::Tarantool::Spaces;
 use DR::Tarantool::Tuple;
+use DR::Tarantool::Constants;
 use Carp;
 $Carp::Internal{ (__PACKAGE__) }++;
 use Scalar::Util ();
@@ -88,9 +89,12 @@ sub connect {
     my $user        = delete $opts{user};
     my $password    = delete $opts{password};
 
-    my $spaces = Scalar::Util::blessed($opts{spaces}) ?
-        $opts{spaces} : DR::Tarantool::Spaces->new($opts{spaces});
-    $spaces->family(2);
+    my $spaces = undef;
+    if ($opts{spaces}) {
+        $spaces = Scalar::Util::blessed($opts{spaces}) ?
+            $opts{spaces} : DR::Tarantool::Spaces->new($opts{spaces});
+        $spaces->family(2);
+    }
 
     my $reconnect_period    = $opts{reconnect_period} || 0;
     my $reconnect_always    = $opts{reconnect_always} || 0;
@@ -113,20 +117,128 @@ sub connect {
             } else {
                 $self = $client;
             }
-
-            $cb->( $self );
+            $self->_load_schema($cb);
         }
     );
 
     return;
 }
 
+sub _load_schema {
+    my ( $self, $cb, $remove_old ) = @_;
+
+    if ( !$remove_old and $self->{spaces} ) {
+        $cb->($self);
+        return;
+    }
+
+    my %spaces = ();
+    my ( $get_spaces_cb, $get_indexes_cb );
+
+    # get numbers of existing non-service spaces
+    $get_spaces_cb = sub {
+        my ( $status, $data ) = @_;
+        croak 'cannot call lua "box.space._space:select"' unless $status eq 'ok';
+        my $next = $data;
+        LOOP: {
+            do {{
+                last LOOP unless $next;
+                my $raw = $next->raw;
+                # $raw structure:
+                # [space_no, uid, space_name, engine, field_count, {temporary}, [format]]
+
+                next unless $raw->[2];     # no space name
+                next if $raw->[2] =~ /^_/; # skip service spaces
+
+                $spaces{$raw->[0]} =
+                    {
+                        name   => $raw->[2],
+                        fields => [
+                                    map { $_->{type} = uc($_->{type}); $_ }
+                                        @{ ref $raw->[6] eq 'ARRAY' ? $raw->[6] : [$raw->[6]] }
+                                  ],
+                    }
+            }} while ($next = $next->next);
+        }
+
+        DR::Tarantool::MsgPack::AsyncClient::call_lua($self,'box.space._vindex:select' => [], $get_indexes_cb);
+    };
+
+    # get index structure for each of spaces we got
+    $get_indexes_cb = sub {
+        my ( $status, $data ) = @_;
+        croak 'cannot call lua "box.space._vindex:select"' unless $status eq 'ok';
+        my $next = $data;
+        LOOP: {
+            do {{
+                last LOOP unless $next;
+                my $raw = $next->raw;
+                # $raw structure:
+                # [space_no, index_no, index_name, index_type, {params}, [fields] ]
+
+                my $space_no = $raw->[0];
+                next unless exists $spaces{$space_no};
+
+                unless ( defined($raw->[1]) and defined($raw->[2]) ) {
+                    delete $spaces{$space_no};
+                    next;
+                }
+                $spaces{$space_no}->{indexes}{$raw->[1]} =
+                    {
+                        name => $raw->[2],
+                        fields => [ map { $_->[0] } @{ $raw->[5] } ],
+                    };
+
+                # add to fields array ones found in 'indexes'
+                # but not present in 'fields'
+                my $were_fields_count = scalar @{ $spaces{$space_no}->{fields} };
+                push @{ $spaces{$space_no}->{fields} },
+                    map { { type => uc($_->[1]) }  } @{ $raw->[5] }[ $were_fields_count .. $#{$raw->[5]} ];
+
+            }} while ($next = $next->next);
+        }
+
+        for my $space ( keys %spaces ) {
+            unless ( $spaces{$space}{fields} ) {
+                delete $spaces{$space};
+                next;
+            }
+            unless ( $spaces{$space}{indexes} ) {
+                delete $spaces{$space};
+                next;
+            }
+            for my $index ( values %{$spaces{$space}->{indexes}} ) {
+                @{ $index->{fields} } =
+                    map { exists $spaces{$space}{fields}[$_]{name} ? $spaces{$space}{fields}[$_]{name} : $_ }
+                        @{ $index->{fields} };
+            }
+        }
+        $self->{spaces} = DR::Tarantool::Spaces->new(\%spaces);
+        $self->{spaces}->family(2);
+
+        $self->set_schema_id($cb);
+    };
+
+    DR::Tarantool::MsgPack::AsyncClient::call_lua($self, 'box.space._space:select' => [], $get_spaces_cb);
+
+    return $self;
+}
+
 sub _llc { return $_[0]{llc} if ref $_[0]; 'DR::Tarantool::MsgPack::LLClient' }
 
 
 sub _cb_default {
-    my ($res, $s, $cb) = @_;
+    my ($res, $s, $cb, $connect_obj, $caller_sub) = @_;
     if ($res->{status} ne 'ok') {
+        my $error_name = DR::Tarantool::Constants::get_error_name($res->{CODE});
+
+        if ( $error_name and $error_name eq 'ER_WRONG_SCHEMA_VERSION' ) {
+            $connect_obj->{SCHEMA_ID} = undef;
+            $connect_obj->{spaces}    = undef;
+            $connect_obj->_load_schema($caller_sub);
+            return;
+        }
+
         $cb->($res->{status} => $res->{CODE}, $res->{ERROR});
         return;
     }
@@ -269,14 +381,32 @@ Field number or name.
 =cut
 
 
+sub set_schema_id {
+    my $self = shift;
+    my $cb = pop;
 
+    $self->_llc->_check_cb( $cb );
+    $self->_llc->ping(
+        sub {
+            my ( $res ) = @_;
+            if ($res->{status} ne 'ok') {
+                croak 'cannot perform ping in order to get schema_id '
+                    . "status=$res->{status}, code=$res->{CODE}, error=$res->{ERROR}";
+                return;
+            }
+
+            $self->{SCHEMA_ID} = $res->{SCHEMA_ID};
+            $cb->($self);
+            return;
+    });
+}
 
 sub ping {
     my $self = shift;
     my $cb = pop;
 
     $self->_llc->_check_cb( $cb );
-    $self->_llc->ping(sub { _cb_default($_[0], undef, $cb) });
+    $self->_llc->ping(sub { _cb_default($_[0], undef, $cb, $self) });
 }
 
 sub insert {
@@ -291,22 +421,46 @@ sub insert {
     my $sno;
     my $s;
 
+    my $subref = undef;
+    $subref = sub {
+        my $self = shift;
+        $self->_llc->insert(
+            $sno,
+            $tuple,
+            $self->{SCHEMA_ID},
+            sub {
+                my ($res) = @_;
+                Scalar::Util::weaken($subref) unless Scalar::Util::isweak($subref);
+                _cb_default($res, $s, $cb, $self, $subref);
+            }
+        );
+    };
+
     if (Scalar::Util::looks_like_number $space) {
         $sno = $space;
-    } else {
-        $s = $self->{spaces}->space($space);
-        $sno = $s->number,
-        $tuple = $s->pack_tuple( $tuple );
+    }
+    else {
+        eval {
+            $s = $self->{spaces}->space($space);
+            $sno = $s->number,
+            $tuple = $s->pack_tuple( $tuple );
+        };
+        if ($@) {
+            $self->_load_schema(
+            sub {
+                 my $self = shift;
+                 $s = $self->{spaces}->space($space);
+                 $sno = $s->number,
+                 $tuple = $s->pack_tuple( $tuple );
+
+                 $subref->($self);
+                 return;
+            } => 'remove old');
+            return;
+        }
     }
 
-    $self->_llc->insert(
-        $sno,
-        $tuple,
-        sub {
-            my ($res) = @_;
-            _cb_default($res, $s, $cb);
-        }
-    );
+    $subref->($self);
     return;
 }
 
@@ -322,22 +476,46 @@ sub replace {
     my $sno;
     my $s;
 
+    my $subref = undef;
+    $subref = sub {
+        my $self = shift;
+        $self->_llc->replace(
+            $sno,
+            $tuple,
+            $self->{SCHEMA_ID},
+            sub {
+                my ($res) = @_;
+                Scalar::Util::weaken($subref) unless Scalar::Util::isweak($subref);
+                _cb_default($res, $s, $cb, $self, $subref);
+            }
+        );
+    };
+
     if (Scalar::Util::looks_like_number $space) {
         $sno = $space;
-    } else {
-        $s = $self->{spaces}->space($space);
-        $sno = $s->number,
-        $tuple = $s->pack_tuple( $tuple );
+    }
+    else {
+        eval {
+            $s = $self->{spaces}->space($space);
+            $sno = $s->number,
+            $tuple = $s->pack_tuple( $tuple );
+        };
+        if ($@) {
+            $self->_load_schema(
+            sub {
+                 my $self = shift;
+                 $s = $self->{spaces}->space($space);
+                 $sno = $s->number,
+                 $tuple = $s->pack_tuple( $tuple );
+
+                 $subref->($self);
+                 return;
+            } => 'remove old');
+            return;
+        }
     }
 
-    $self->_llc->replace(
-        $sno,
-        $tuple,
-        sub {
-            my ($res) = @_;
-            _cb_default($res, $s, $cb);
-        }
-    );
+    $subref->($self);
     return;
 }
 
@@ -353,21 +531,44 @@ sub delete :method {
     my $sno;
     my $s;
 
+    my $subref = undef;
+    $subref = sub {
+        my $self = shift;
+        $self->_llc->delete(
+            $sno,
+            $key,
+            $self->{SCHEMA_ID},
+            sub {
+                my ($res) = @_;
+                Scalar::Util::weaken($subref) unless Scalar::Util::isweak($subref);
+                _cb_default($res, $s, $cb, $self, $subref);
+            }
+        );
+    };
+
     if (Scalar::Util::looks_like_number $space) {
         $sno = $space;
-    } else {
-        $s = $self->{spaces}->space($space);
-        $sno = $s->number;
+    }
+    else {
+        eval {
+            $s = $self->{spaces}->space($space);
+            $sno = $s->number,
+        };
+        if ($@) {
+            $self->_load_schema(
+            sub {
+                 my $self = shift;
+                 $s = $self->{spaces}->space($space);
+                 $sno = $s->number,
+
+                 $subref->($self);
+                 return;
+            } => 'remove old');
+            return;
+        }
     }
 
-    $self->_llc->delete(
-        $sno,
-        $key,
-        sub {
-            my ($res) = @_;
-            _cb_default($res, $s, $cb);
-        }
-    );
+    $subref->($self);
     return;
 }
 
@@ -383,28 +584,54 @@ sub select :method {
     my $sno;
     my $ino;
     my $s;
+
+    my $subref = undef;
+    $subref = sub {
+        my $self = shift;
+        $self->_llc->select(
+            $sno,
+            $ino,
+            $key,
+            $opts{limit},
+            $opts{offset},
+            $opts{iterator},
+            $self->{SCHEMA_ID},
+            sub {
+                my ($res) = @_;
+                Scalar::Util::weaken($subref) unless Scalar::Util::isweak($subref);
+                _cb_default($res, $s, $cb, $self, $subref);
+            }
+        );
+    };
+
     if (Scalar::Util::looks_like_number $space) {
         $sno = $space;
         croak 'If space is number, index must be number too'
             unless Scalar::Util::looks_like_number $index;
         $ino = $index;
-    } else {
-        $s = $self->{spaces}->space($space);
-        $sno = $s->number;
-        $ino = $s->_index( $index )->{no};
     }
-    $self->_llc->select(
-        $sno,
-        $ino,
-        $key,
-        $opts{limit},
-        $opts{offset},
-        $opts{iterator},
-        sub {
-            my ($res) = @_;
-            _cb_default($res, $s, $cb);
+    else {
+        eval {
+            $s = $self->{spaces}->space($space);
+            $sno = $s->number;
+            $ino = $s->_index( $index )->{no};
+        };
+        if ($@) {
+            $self->_load_schema(
+            sub {
+                 my $self = shift;
+                 $s = $self->{spaces}->space($space);
+                 $sno = $s->number;
+                 $ino = $s->_index( $index )->{no};
+
+                 $subref->($self);
+                 return;
+            } => 'remove old');
+            return;
         }
-    );
+    }
+    $subref->($self);
+    return;
 }
 
 sub update :method {
@@ -417,22 +644,49 @@ sub update :method {
 
     my $sno;
     my $s;
+
+    my $subref = undef;
+    $subref = sub {
+        my $self = shift;
+        $self->_llc->update(
+            $sno,
+            $key,
+            $ops,
+            $self->{SCHEMA_ID},
+            sub {
+                my ($res) = @_;
+                Scalar::Util::weaken($subref) unless Scalar::Util::isweak($subref);
+                _cb_default($res, $s, $cb, $self, $subref);
+            }
+        );
+    };
+
     if (Scalar::Util::looks_like_number $space) {
         $sno = $space;
-    } else {
-        $s = $self->{spaces}->space($space);
-        $sno = $s->number;
-        $ops = $s->pack_operations($ops);
     }
-    $self->_llc->update(
-        $sno,
-        $key,
-        $ops,
-        sub {
-            my ($res) = @_;
-            _cb_default($res, $s, $cb);
+    else {
+        eval {
+            $s = $self->{spaces}->space($space);
+            $sno = $s->number;
+            $ops = $s->pack_operations($ops);
+        };
+        if ($@) {
+            $self->_load_schema(
+            sub {
+                 my $self = shift;
+                 $s = $self->{spaces}->space($space);
+                 $sno = $s->number;
+                 $ops = $s->pack_operations($ops);
+
+                 $subref->($self);
+                 return;
+            } => 'remove old');
+            return;
         }
-    );
+    }
+
+    $subref->($self);
+    return;
 }
 
 sub call_lua {
@@ -452,7 +706,7 @@ sub call_lua {
         $tuple,
         sub {
             my ($res) = @_;
-            _cb_default($res, undef, $cb);
+            _cb_default($res, undef, $cb, $self);
         }
     );
     return;

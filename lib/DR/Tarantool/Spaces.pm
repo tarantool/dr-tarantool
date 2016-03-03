@@ -322,7 +322,7 @@ sub new {
 
             for (@$fields) {
                 croak "field '$_' is presend in index but isn't in fields"
-                    unless exists $fast{ $_ };
+                    unless ( exists $fast{ $_ } or exists $fast{ "f$_" } ) ;
             }
 
             $indexes{ $name } = {
