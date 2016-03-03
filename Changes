@@ -1,1 +1,9 @@
-debian/changelog
+tarantool-perl repo (0.44-1)
+
+  * Fixed: now call_lua() works with multiple arguments
+  * Added: automatic schema loading + tests, closes: #2
+  * Fixed: test llclient - in error from tarantool space number is
+    now written without '#', so test now respects it
+
+ -- Pavel Limorenko <p.limorenko@corp.mail.ru> Thu, 3 Mar 2016 12:30:27 +0400
+
