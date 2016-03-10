@@ -8,7 +8,7 @@ use lib qw(lib ../lib ../../lib);
 use lib qw(blib/lib blib/arch ../blib/lib
     ../blib/arch ../../blib/lib ../../blib/arch);
 
-use Test::More tests    => 25;
+use Test::More tests    => 28;
 use Encode qw(decode encode);
 
 
@@ -20,7 +20,7 @@ BEGIN {
     binmode $builder->todo_output,    ":utf8";
 
     use_ok 'DR::Tarantool::MsgPack::Proto',
-        qw(call_lua response insert replace del update select auth);
+        qw(call_lua response insert replace del update select auth upsert);
 }
 
 
@@ -160,6 +160,37 @@ note 'update';
         SYNC            => 10,
         TUPLE           => [['test'], [['+', 1, 2]]],
         FUNCTION_NAME   => 'box.space.space_name:update',
+    }, 'Update request with space name';
+}
+
+note 'upsert';
+{
+    my ($p) = response upsert(10, 27, [1,2,3], [['+', 1, 2]]);
+    is_deeply $p => {
+        CODE            => 'UPSERT',
+        SYNC            => 10,
+        TUPLE           => [1, 2, 3],
+        OPS             => [['+', 1, 2]],
+        SPACE_ID        => 27,
+    }, 'Update request with space number';
+}
+{
+    my ($p) = response upsert(10, 27, 'test', [['-', 1, 2]]);
+    is_deeply $p => {
+        CODE            => 'UPSERT',
+        SYNC            => 10,
+        TUPLE           => ['test'],
+        OPS             => [['-', 1, 2]],
+        SPACE_ID        => 27,
+    }, 'Update request with space number';
+}
+{
+    my ($p) = response upsert(10, 'space_name', 'test', [['+', 1, 2]]);
+    is_deeply $p => {
+        CODE            => 'CALL',
+        SYNC            => 10,
+        TUPLE           => [['test'], [['+', 1, 2]]],
+        FUNCTION_NAME   => 'box.space.space_name:upsert',
     }, 'Update request with space name';
 }
 

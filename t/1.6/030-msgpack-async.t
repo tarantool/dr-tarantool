@@ -7,7 +7,7 @@ use open qw(:std :utf8);
 use lib qw(lib ../lib);
 
 BEGIN {
-    use constant PLAN       => 62;
+    use constant PLAN       => 70;
     use Test::More;
     use DR::Tarantool::StartTest;
 
@@ -258,6 +258,52 @@ for my $cv (AE::cv) {
             is $_[0] => 'ok', 'status';
             is_deeply $_[1]->raw => [2, 'петюня', 36], 'tuple';
             is $_[2] => 0, 'code';
+        }
+    );
+
+    wait_cv_ok $cv;
+}
+
+note 'upsert';
+for my $cv (AE::cv) {
+    $cv->begin;
+    $tnt->upsert(
+        'name_in_script',
+        [55, 11, 'string'],
+        [ [ '+' => 1, 2 ] ],
+        sub {
+            is $_[0] => 'ok', 'status';
+            is $_[2] => 0, 'code';
+            $tnt->select(
+                'name_in_script', 0, 55,
+                sub {
+                    my ($ok, $data) = @_;
+                    is_deeply $data->raw => [55, 11, 'string'], 'upSERT';
+                    $cv->end;
+                }
+            );
+        }
+    );
+
+    wait_cv_ok $cv;
+}
+for my $cv (AE::cv) {
+    $cv->begin;
+    $tnt->upsert(
+        'name_in_script',
+        [55, 11, 'string'],
+        [ [ '+' => 1, 2 ] ],
+        sub {
+            is $_[0] => 'ok', 'status';
+            is $_[2] => 0, 'code';
+            $tnt->select(
+                'name_in_script', 0, 55,
+                sub {
+                    my ($ok, $data) = @_;
+                    is_deeply $data->raw => [55, 13, 'string'], 'UPsert';
+                    $cv->end;
+                }
+            );
         }
     );
 

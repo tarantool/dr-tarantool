@@ -7,7 +7,7 @@ use open qw(:std :utf8);
 use lib qw(lib ../lib);
 
 BEGIN {
-    use constant PLAN       => 30;
+    use constant PLAN       => 37;
     use Test::More;
     use DR::Tarantool::StartTest;
 
@@ -130,6 +130,60 @@ is_deeply
 
 $t->admin(q[ box.space.test_temp_space_to_delete2:truncate()]);
 $t->admin(q[ box.space.test_temp_space_to_delete2:drop()]);
+
+
+## update
+eval {
+    $t->admin(q[ box.schema.create_space('test_temp_space_to_delete2', { id = 124 }).n]);
+    $t->admin(q[ box.space.test_temp_space_to_delete2:create_index('pk', { type = 'tree' })]);
+};
+ok ( !$@, 'schema_id changed for insert' );
+
+is_deeply
+    $tnt->insert('test_temp_space_to_delete2', [ 1, 'вася', 21 ])->raw,
+    [ 1, 'вася', 21 ],
+    'insert for update changed schema';
+
+is_deeply
+    $tnt->update('test_temp_space_to_delete2', 1, [['+',2,22]])->raw,
+    [ 1, 'вася', 43 ],
+    'update changed schema';
+
+
+is_deeply
+    $tnt->select('test_temp_space_to_delete2', 'pk', 1)->raw,
+    [ 1, 'вася', 43 ],
+    'select for update changed schema';
+
+
+$t->admin(q[ box.space.test_temp_space_to_delete2:truncate()]);
+$t->admin(q[ box.space.test_temp_space_to_delete2:drop()]);
+
+## upsert
+eval {
+    $t->admin(q[ box.schema.create_space('test_temp_space_to_delete2', { id = 124 }).n]);
+    $t->admin(q[ box.space.test_temp_space_to_delete2:create_index('pk', { type = 'tree' })]);
+};
+ok ( !$@, 'schema_id changed for insert' );
+
+$tnt->upsert('test_temp_space_to_delete2', [1, 'вася', 43], [['+',2,22]]);
+
+is_deeply
+    $tnt->select('test_temp_space_to_delete2', 'pk', 1)->raw,
+    [ 1, 'вася', 43 ],
+    'select for upsert changed schema';
+
+$tnt->upsert('test_temp_space_to_delete2', [1, 'вася', 43], [['+',2,22]]);
+
+is_deeply
+    $tnt->select('test_temp_space_to_delete2', 'pk', 1)->raw,
+    [ 1, 'вася', 65 ],
+    'select for upsert changed schema';
+
+
+$t->admin(q[ box.space.test_temp_space_to_delete2:truncate()]);
+$t->admin(q[ box.space.test_temp_space_to_delete2:drop()]);
+
 
 
 ## select

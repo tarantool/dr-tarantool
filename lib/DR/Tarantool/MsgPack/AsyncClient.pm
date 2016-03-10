@@ -364,6 +364,17 @@ Update a tuple.
 C<@ops> is array of operations to update.
 Each operation is array of elements:
 
+=head2 upsert
+
+Upsert a tuple.
+
+    $client->upsert('space', [ 1, 'Vasya', 'text' ], \@ops, sub { ... });
+
+Inserts the tuple (second argument) if not exists, otherwise works as C<update> method
+C<@ops> is array of operations to update if specified tuple exists.
+Each operation is array of elements:
+
+
 =over
 
 =item code
@@ -651,6 +662,61 @@ sub update :method {
         $self->_llc->update(
             $sno,
             $key,
+            $ops,
+            $self->{SCHEMA_ID},
+            sub {
+                my ($res) = @_;
+                Scalar::Util::weaken($subref) unless Scalar::Util::isweak($subref);
+                _cb_default($res, $s, $cb, $self, $subref);
+            }
+        );
+    };
+
+    if (Scalar::Util::looks_like_number $space) {
+        $sno = $space;
+    }
+    else {
+        eval {
+            $s = $self->{spaces}->space($space);
+            $sno = $s->number;
+            $ops = $s->pack_operations($ops);
+        };
+        if ($@) {
+            $self->_load_schema(
+            sub {
+                 my $self = shift;
+                 $s = $self->{spaces}->space($space);
+                 $sno = $s->number;
+                 $ops = $s->pack_operations($ops);
+
+                 $subref->($self);
+                 return;
+            } => 'remove old');
+            return;
+        }
+    }
+
+    $subref->($self);
+    return;
+}
+
+sub upsert :method {
+    my $self = shift;
+    my $cb = pop;
+    $self->_llc->_check_cb( $cb );
+    my $space = shift;
+    my $tuple = shift;
+    my $ops = shift;
+
+    my $sno;
+    my $s;
+
+    my $subref = undef;
+    $subref = sub {
+        my $self = shift;
+        $self->_llc->upsert(
+            $sno,
+            $tuple,
             $ops,
             $self->{SCHEMA_ID},
             sub {
