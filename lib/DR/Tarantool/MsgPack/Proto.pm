@@ -5,7 +5,7 @@ use warnings;
 package DR::Tarantool::MsgPack::Proto;
 use DR::Tarantool::MsgPack qw(msgpack msgunpack msgcheck);
 use base qw(Exporter);
-our @EXPORT_OK = qw(call_lua response insert replace del update select auth handshake ping);
+our @EXPORT_OK = qw(call_lua response insert replace del update select auth handshake ping upsert);
 use Carp;
 use Scalar::Util 'looks_like_number';
 use Digest::SHA 'sha1';
@@ -39,6 +39,7 @@ BEGIN {
         IPROTO_DELETE              => 5,
         IPROTO_CALL                => 6,
         IPROTO_AUTH                => 7,
+        IPROTO_UPSERT              => 9,
         IPROTO_DML_REQUEST_MAX     => 8,
         IPROTO_PING                => 64,
         IPROTO_SUBSCRIBE           => 66,
@@ -59,6 +60,7 @@ BEGIN {
         IPROTO_TUPLE               => 0x21,
         IPROTO_FUNCTION_NAME       => 0x22,
         IPROTO_USER_NAME           => 0x23,
+        IPROTO_OPS                 => 0x28,
         IPROTO_DATA                => 0x30,
         IPROTO_ERROR               => 0x31,
     );
@@ -265,6 +267,30 @@ sub update($$$$@) {
     }
     # HACK
     call_lua($sync, "box.space.$space:update", [ $key, $ops ]);
+}
+
+sub upsert($$$$@) {
+    my ($sync, $space, $tuple, $ops, $schema_id) = @_;
+    croak 'Oplist must be Arrayref' unless 'ARRAY' eq ref $ops;
+    $tuple = [ $tuple ] unless ref $tuple;
+    croak "Cant convert HashRef to key" if 'HASH' eq ref $tuple;
+
+    if (looks_like_number $space) {
+        return request
+            {
+                IPROTO_SYNC,        $sync,
+                IPROTO_CODE,        IPROTO_UPSERT,
+                use_schema_id($schema_id),
+            },
+            {
+                IPROTO_SPACE_ID,    $space,
+                IPROTO_TUPLE,       $tuple,
+                IPROTO_OPS,         $ops,
+            }
+        ;
+    }
+    # HACK
+    call_lua($sync, "box.space.$space:upsert", [ $tuple, $ops ]);
 }
 
 sub select($$$$;$$$@) {

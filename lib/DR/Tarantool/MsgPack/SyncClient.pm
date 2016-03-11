@@ -32,7 +32,7 @@ sub ping {
 }
 
 
-for my $method (qw(insert replace select update delete call_lua)) {
+for my $method (qw(insert replace select update upsert delete call_lua)) {
     no strict 'refs';
     *{ __PACKAGE__ . "::$method" } = sub {
         my ($self, @args) = @_;

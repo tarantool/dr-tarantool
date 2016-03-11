@@ -126,7 +126,6 @@ sub get_error_name {
 
     my $error_name = $ERROR_CODES{$error_num};
     unless ( defined $error_name ) {
-        croak "unknown error num '$error_num'" ;
         return;
     }
     return $error_name;

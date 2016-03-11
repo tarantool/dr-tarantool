@@ -700,7 +700,7 @@ sub pack_operation {
     my $fno = $op->[1];
     my $f = $self->_field($fno);
     my @res = @$op;
-    splice @res, 1, 1, $f->{idx};
+    splice @res, 1, 1, ($f->{idx} || $res[1]);
     return \@res;
 }
 

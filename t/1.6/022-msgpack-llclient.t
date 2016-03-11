@@ -9,7 +9,7 @@ use lib qw(blib/lib blib/arch ../blib/lib
     ../blib/arch ../../blib/lib ../../blib/arch);
 
 BEGIN {
-    use constant PLAN       => 128;
+    use constant PLAN       => 141;
     use Test::More;
     use DR::Tarantool::StartTest;
 
@@ -586,6 +586,66 @@ for my $cv (AE::cv) {
         my ($res) = @_;
         is_deeply $res->{DATA}, [[1,5,2]], 'data after update';
         $cv->end;
+    });
+
+    my $timer;
+    $timer = AE::timer 1.5, 0, sub { $cv->end };
+    $cv->recv;
+    undef $timer;
+}
+
+note 'upsert';
+for my $cv (AE::cv) {
+    $cv->begin;
+    $tnt->upsert(6, 1, [ ], sub {
+        my ($res) = shift;
+        isa_ok $res => 'HASH';
+        ok $res->{CODE}, 'CODE is not 0';
+        like $res->{ERROR} => qr{Space '6' does not exist}, 'error message';
+
+        $cv->end;
+    });
+
+
+
+    $cv->begin;
+    $tnt->upsert(7, 55, [['+', 1, 1]], sub {
+        my ($res) = shift;
+        isa_ok $res => 'HASH';
+        is_deeply $res->{DATA} => [], 'tuple was not found';
+        is $res->{CODE}, 0, 'code';
+        is $res->{status}, 'ok', 'status';
+        $cv->end;
+    });
+
+    $cv->begin;
+    $tnt->select(7, 0, 1, sub {
+        my ($res) = @_;
+        is_deeply $res->{DATA}, [[1,5,2]], 'data in db';
+        $tnt->upsert(7, [1,5,2], [['+', 1, 1], ['-', 2, 2]], sub {
+            my ($res) = @_;
+            ok !$res->{CODE}, 'code = 0 upsert';
+            $tnt->select(7, 0, 1, sub {
+                my ($res) = @_;
+                is_deeply $res->{DATA}, [[1,6,0]], 'UPserted data in db';
+                $cv->end;
+            });
+        });
+    });
+
+    $cv->begin;
+    $tnt->select(7, 0, 22, sub {
+        my ($res) = @_;
+        is_deeply $res->{DATA}, [], 'no data in db';
+        $tnt->upsert(7, [22, 12, 31], [['+', 1, 1], ['-', 2, 2]], sub {
+            my ($res) = @_;
+            ok !$res->{CODE}, 'code = 0 upsert';
+            $tnt->select(7, 0, 22, sub {
+                my ($res) = @_;
+                is_deeply $res->{DATA}, [[22,12,31]], 'upSERTed data in db';
+                $cv->end;
+            });
+        });
     });
 
     my $timer;

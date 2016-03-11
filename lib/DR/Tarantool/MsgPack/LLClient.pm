@@ -288,4 +288,22 @@ sub update {
     $self->_request($id, $pkt, $cb);
     return;
 }
+
+sub upsert {
+    my $self = shift;
+    my $cb = pop;
+    $self->_check_cb($cb);
+
+    my $space = shift;
+    my $tuple = shift;
+    my $ops = shift;
+    my $schema_id = shift;
+
+
+    my $id = $self->_req_id;
+    my $pkt = DR::Tarantool::MsgPack::Proto::upsert($id, $space, $tuple, $ops, $schema_id);
+    $self->_request($id, $pkt, $cb);
+    return;
+}
+
 1;
