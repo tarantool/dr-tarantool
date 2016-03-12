@@ -8,7 +8,7 @@ Currently in process of uploading on CPAN.
   - Async queries (event-driven development)
   - Sync queries
   - Ability to use spaces and indexes names (schema loading) in following queries
-  - SELECT, INSERT, DELETE, REPLACE, UPDATE, LUA functions call  
+  - SELECT, INSERT, DELETE, REPLACE, UPDATE, UPSERT, LUA functions call  
    
 #### Usage  
 Since tarantool database has two completely different versions (1.5 and 1.6), tarantool-perl client is created to be universal, which is able to handle both versions.
@@ -55,7 +55,7 @@ Here we pass one more argument to `connect()` method, which is callback to be in
 The other methods are to be invoked in a similar way, the functions prototypes and usage examples can be found in perldoc.
 
 ### Version
-0.45
+0.46
 
 ### Tech
 
@@ -79,9 +79,8 @@ Want to contribute? Great! It's github, open issues, send pull requests :)
 
 ### TODO
 
- - Patch `call_lua()` to get multiple arguments calls work correctly
- - Patch XS-code to be able to compile this module under **perl 5.10**
- - Write more tests
+ - Fix problem with inserting of string with numbers
+   (for example '112') into the field of type 'STR'
 
 ### License
 

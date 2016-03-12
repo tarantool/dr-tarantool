@@ -1,3 +1,11 @@
+tarantool-perl repo (0.46)
+
+  * Added: support of 'upsert' method + tests, closes: #1
+  * Fixed: call of 'update' method with some extra field number
+
+ -- Pavel Limorenko <p.limorenko@corp.mail.ru> Thu, 3 Mar 2016 12:30:27 +0400
+
+
 tarantool-perl repo (0.45)
 
   * Fixed: now call_lua() works with multiple arguments
