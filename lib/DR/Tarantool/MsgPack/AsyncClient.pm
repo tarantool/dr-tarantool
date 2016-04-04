@@ -108,16 +108,18 @@ sub connect {
         reconnect_always    => $reconnect_always,
         sub {
             my ($client) = @_;
-            my $self;
-            if (ref $client) {
-                $self = bless {
-                    llc         => $client,
-                    spaces      => $spaces,
-                } => ref($class) || $class;
-            } else {
-                $self = $client;
+            unless (ref $client) {
+                $cb->($client);
+                return;
             }
+
+            my $self = bless {
+                llc         => $client,
+                spaces      => $spaces,
+            } => ref($class) || $class;
             $self->_load_schema($cb);
+
+            return;
         }
     );
 

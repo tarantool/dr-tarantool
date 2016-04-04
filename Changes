@@ -1,3 +1,10 @@
+tarantool-perl repo (0.47)
+
+  * Fixed: correct handling of connection error, closes: #8
+
+ -- Pavel Limorenko <p.limorenko@corp.mail.ru> Mon, 4 Apr 2016 11:02:51 +0400
+
+
 tarantool-perl repo (0.46)
 
   * Added: support of 'upsert' method + tests, closes: #1
