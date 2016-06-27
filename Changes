@@ -1,3 +1,10 @@
+tarantool-perl repo (0.48)
+
+  * Fixed: correct handling of disconnection, closes: #10
+
+ -- Pavel Limorenko <p.limorenko@corp.mail.ru> Mon, 27 Jun 2016 15:13:28 +0400
+
+
 tarantool-perl repo (0.47)
 
   * Fixed: correct handling of connection error, closes: #8
