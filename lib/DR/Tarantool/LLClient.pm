@@ -683,7 +683,18 @@ sub _log_transaction {
 sub _request {
     my ($self, $id, $pkt, $cb ) = @_;
 #     Scalar::Util::weaken $self;
-  
+
+    unless ( $self->state eq 'connected' ) {
+        $cb->({
+                status  => 'error',
+                req_id  => $id,
+                ERROR   => "Connection isn't established"
+            }
+        );
+        return;
+   }
+
+
     my $cbres = $cb;
     $cbres = sub { $self->_log_transaction($id, $pkt, @_); &$cb }
         if $ENV{TNT_LOG_ERRDIR} or $ENV{TNT_LOG_DIR};

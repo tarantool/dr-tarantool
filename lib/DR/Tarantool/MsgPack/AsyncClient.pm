@@ -126,6 +126,12 @@ sub connect {
     return;
 }
 
+sub disconnect {
+    my ( $self, $cb ) = @_;
+    $self->_llc->disconnect($cb);
+    return;
+}
+
 sub _load_schema {
     my ( $self, $cb, $remove_old ) = @_;
 
