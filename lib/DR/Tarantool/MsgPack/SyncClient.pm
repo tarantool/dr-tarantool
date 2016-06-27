@@ -22,6 +22,15 @@ sub connect {
     return $self;
 }
 
+sub disconnect {
+    my ($self) = @_;
+    my $cv = AE::cv;
+    $self->SUPER::disconnect( sub { $cv->send(@_) } );
+    my $status = $cv->recv;
+    return 1 if $status and $status eq 'ok';
+    return 0;
+}
+
 sub ping {
     my ($self) = @_;
     my $cv = AE::cv;
