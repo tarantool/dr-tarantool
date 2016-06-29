@@ -198,10 +198,9 @@ sub _load_schema {
                     };
 
                 # add to fields array ones found in 'indexes'
-                # but not present in 'fields'
-                my $were_fields_count = scalar @{ $spaces{$space_no}->{fields} };
-                push @{ $spaces{$space_no}->{fields} },
-                    map { { type => uc($_->[1]) }  } @{ $raw->[5] }[ $were_fields_count .. $#{$raw->[5]} ];
+
+                $spaces{$space_no}->{fields}->[ $_->[0] ]->{type} = uc( $_->[1] )
+                    for @{ $raw->[5] };
 
             }} while ($next = $next->next);
         }
