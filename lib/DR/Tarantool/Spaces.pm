@@ -279,7 +279,7 @@ sub new {
             croak 'wrong field name or description';
         } else {
             push @fields => {
-                name    => $f,
+                name    => $f || "f$no",
                 idx     => $no,
                 type    => $default_type,
             }
