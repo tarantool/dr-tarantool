@@ -1,3 +1,9 @@
+tarantool-perl repo (0.51)
+
+  * Fixed: schema loading access problem
+
+ -- Pavel Limorenko <p.limorenko@corp.mail.ru> Wed, 27 Jul 2016 12:05:11 +0400
+
 tarantool-perl repo (0.50)
 
   * Fixed: no to get frozen on query fails because of croaks

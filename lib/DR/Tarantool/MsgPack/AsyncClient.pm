@@ -172,7 +172,11 @@ sub _load_schema {
             }} while ($next = $next->next);
         }
 
-        DR::Tarantool::MsgPack::AsyncClient::call_lua($self,'box.space._vindex:select' => [], $get_indexes_cb);
+        DR::Tarantool::MsgPack::AsyncClient::select(
+            $self,
+            DR::Tarantool::Constants::get_space_no('_vindex'), 0, [],
+            $get_indexes_cb,
+        );
     };
 
     # get index structure for each of spaces we got
@@ -232,7 +236,11 @@ sub _load_schema {
         $self->set_schema_id($cb);
     };
 
-    DR::Tarantool::MsgPack::AsyncClient::call_lua($self, 'box.space._vspace:select' => [], $get_spaces_cb);
+    DR::Tarantool::MsgPack::AsyncClient::select(
+        $self,
+        DR::Tarantool::Constants::get_space_no('_vspace'), 0, [],
+        $get_spaces_cb,
+    );
 
     return $self;
 }

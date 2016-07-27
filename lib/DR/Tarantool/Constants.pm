@@ -120,6 +120,17 @@ my %ERROR_CODES = ( # from tarantool sources https://github.com/tarantool/tarant
   113 => "ER_VIEW_IS_RO",
 );
 
+my %service_spaces_no = (
+  _vspace => 281,
+  _vindex => 289,
+);
+
+sub get_space_no {
+    my $space_name = shift;
+    return unless exists $service_spaces_no{$space_name};
+    return $service_spaces_no{$space_name};
+}
+
 sub get_error_name {
     my $error_num  = shift;
     $error_num -= 2 ** 15;
