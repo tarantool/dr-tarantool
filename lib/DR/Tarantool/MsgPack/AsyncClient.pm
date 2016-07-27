@@ -145,8 +145,11 @@ sub _load_schema {
 
     # get numbers of existing non-service spaces
     $get_spaces_cb = sub {
-        my ( $status, $data ) = @_;
-        croak 'cannot call lua "box.space._space:select"' unless $status eq 'ok';
+        my ( $status, $data, $error_msg ) = @_;
+        unless ( $status eq 'ok' ) {
+            $cb->("cannot call lua 'box.space._space:select' to load schema: " . $error_msg);
+            return;
+        }
         my $next = $data;
         LOOP: {
             do {{
@@ -174,8 +177,11 @@ sub _load_schema {
 
     # get index structure for each of spaces we got
     $get_indexes_cb = sub {
-        my ( $status, $data ) = @_;
-        croak 'cannot call lua "box.space._vindex:select"' unless $status eq 'ok';
+        my ( $status, $data, $error_msg ) = @_;
+        unless ( $status eq 'ok' ) {
+            $cb->("cannot call lua 'box.space._vindex:select' to load schema: " . $error_msg);
+            return;
+        }
         my $next = $data;
         LOOP: {
             do {{
@@ -408,8 +414,8 @@ sub set_schema_id {
         sub {
             my ( $res ) = @_;
             if ($res->{status} ne 'ok') {
-                croak 'cannot perform ping in order to get schema_id '
-                    . "status=$res->{status}, code=$res->{CODE}, error=$res->{ERROR}";
+                $cb->( 'cannot perform ping in order to get schema_id '
+                    . "status=$res->{status}, code=$res->{CODE}, error=$res->{ERROR}" );
                 return;
             }
 
