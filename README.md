@@ -55,7 +55,7 @@ Here we pass one more argument to `connect()` method, which is callback to be in
 The other methods are to be invoked in a similar way, the functions prototypes and usage examples can be found in perldoc.
 
 ### Version
-0.49
+0.50
 
 ### Tech
 
