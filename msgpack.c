@@ -92,7 +92,12 @@ void _mpack_item(SV *res, SV *o)
 
 					SV *k = hv_iterkeysv(iter);
 					SV *v = HeVAL(iter);
-					_mpack_item(res, k);
+
+                    SV *key = k;
+                    if (looks_like_number(key)) {
+                        key = newSVnv( (NV) SvNV(key) );
+                    }
+					_mpack_item(res, key);
 					_mpack_item(res, v);
 
 				}
@@ -114,7 +119,7 @@ void _mpack_item(SV *res, SV *o)
 #if PERL_VERSION >= 11
 		case SVt_REGEXP:
 #endif
-			if (!looks_like_number(o)) {
+			if ( !SvIOK(o) && !SvNOK(o) ) {
 				s = SvPV(o, len);
 				new_len = res_len + mp_sizeof_str(len);
 				res_s = SvGROW(res, new_len);
@@ -181,7 +186,9 @@ _munpack_item(const char *p, size_t len, SV **res, HV *ext, int utf)
 			const char *s;
 			uint32_t len;
 			s = mp_decode_str(&p, &len);
-			*res = newSVpvn_flags(s, len, utf ? SVf_UTF8 : 0);
+			/* *res = newSVpvn_flags(s, len, utf ? SVf_UTF8 : 0); */
+			*res = newSVpvn(s, len);
+            SvFLAGS(*res) |= (utf ? SVf_UTF8 : 0);
 			break;
 		}
 		case MP_NIL: {

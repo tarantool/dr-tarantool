@@ -147,7 +147,7 @@ sub _load_schema {
     $get_spaces_cb = sub {
         my ( $status, $data, $error_msg ) = @_;
         unless ( $status eq 'ok' ) {
-            $cb->("cannot call lua 'box.space._space:select' to load schema: " . $error_msg);
+            $cb->("cannot perform select from space '_space' to load schema: " . $error_msg);
             return;
         }
         my $next = $data;
@@ -183,7 +183,7 @@ sub _load_schema {
     $get_indexes_cb = sub {
         my ( $status, $data, $error_msg ) = @_;
         unless ( $status eq 'ok' ) {
-            $cb->("cannot call lua 'box.space._vindex:select' to load schema: " . $error_msg);
+            $cb->("cannot perform select from space '_vindex' to load schema: " . $error_msg);
             return;
         }
         my $next = $data;

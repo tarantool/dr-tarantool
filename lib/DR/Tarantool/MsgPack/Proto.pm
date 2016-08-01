@@ -78,6 +78,10 @@ BEGIN {
     }
 }
 
+my %STRINGS_ONLY = (
+        IPROTO_USER_NAME     => 1,
+        IPROTO_FUNCTION_NAME => 1,
+);
 
 
 sub raw_response($) {
@@ -154,8 +158,23 @@ sub response($) {
     
 }
 
+sub make_values_numeric($) {
+    my ( $hashref ) = @_;
+    for my $key (keys %$hashref) {
+        next if ref $hashref->{$key};
+        next if exists $STRINGS_ONLY{$key};
+        next unless looks_like_number($hashref->{$key});
+        $hashref->{$key} += 0;
+    }
+    return;
+}
+
 sub request($$) {
     my ($header, $body) = @_;
+
+    make_values_numeric($header);
+    make_values_numeric($body);
+
     my $pkt = msgpack($header) . msgpack($body);
     return msgpack(length $pkt) . $pkt;
 }
