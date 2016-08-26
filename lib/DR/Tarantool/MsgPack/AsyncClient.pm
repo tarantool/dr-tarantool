@@ -99,6 +99,8 @@ sub connect {
     my $reconnect_period    = $opts{reconnect_period} || 0;
     my $reconnect_always    = $opts{reconnect_always} || 0;
 
+    my $on_callbacks        = $opts{on} || {};
+
     DR::Tarantool::MsgPack::LLClient->connect(
         host                => $host,
         port                => $port,
@@ -106,6 +108,7 @@ sub connect {
         password            => $password,
         reconnect_period    => $reconnect_period,
         reconnect_always    => $reconnect_always,
+        on                  => $on_callbacks,
         sub {
             my ($client) = @_;
             unless (ref $client) {

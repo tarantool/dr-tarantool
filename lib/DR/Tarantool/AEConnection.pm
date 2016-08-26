@@ -158,7 +158,7 @@ sub disconnect {
     $self->{errno} = 'SUCCESS';
     $self->{state} = 'disconnect';
     $self->{wbuf} = '';
-    close ($self->{fh});
+    close ($self->{fh}) if (exists $self->{fh} and $self->{fh});
     $self->{on}{disconnect}($self);
 }
 

@@ -186,11 +186,14 @@ sub connect {
     my $reconnect_period    = $opts{reconnect_period} || 0;
     my $reconnect_always    = $opts{reconnect_always} || 0;
 
+    my $on_callbacks        = $opts{on} || {};
+
     my $self = $class->SUPER::new(
         host                => $host,
         port                => $port,
         reconnect_period    => $reconnect_period,
         reconnect_always    => $reconnect_always,
+        on                  => $on_callbacks,
     );
 
     $self->on(connected => sub {
@@ -200,18 +203,15 @@ sub connect {
         $cb->($self);
     });
 
+    my $on_connfail = $self->{on}{connfail};
     $self->on(connfail => sub {
         my ($self) = @_;
+        $on_connfail->($self);
         $self->on(connfail => undef);
         unless($self->reconnect_always) {
             $self->on(connected => undef);
             $cb->($self->error);
         }
-    });
-
-    $self->on(error => sub {
-        my ($self) = @_;
-        $self->_fatal_error($self->error);
     });
 
     $self->SUPER::connect;
