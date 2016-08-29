@@ -151,6 +151,14 @@ unsuccessful connection. It calls B<callback> instead.
 
 Try to reconnect even after the first unsuccessful connection.
 
+=item connect_timeout
+
+Timeout for connection
+
+=item connect_attempts
+
+Number of attempts to try to establish connection
+
 =item cb
 
 Done callback. The callback receives a connection handle
@@ -188,12 +196,19 @@ sub connect {
 
     my $on_callbacks        = $opts{on} || {};
 
+    my $connect_timeout     = $opts{connect_timeout};
+    my $connect_attempts    = $opts{connect_attempts} || 1;
+
     my $self = $class->SUPER::new(
         host                => $host,
         port                => $port,
         reconnect_period    => $reconnect_period,
         reconnect_always    => $reconnect_always,
+
         on                  => $on_callbacks,
+
+        connect_timeout     => $connect_timeout,
+        connect_attempts    => $connect_attempts,
     );
 
     $self->on(connected => sub {
@@ -207,8 +222,8 @@ sub connect {
     $self->on(connfail => sub {
         my ($self) = @_;
         $on_connfail->($self);
-        $self->on(connfail => undef);
-        unless($self->reconnect_always) {
+#        $self->on(connfail => undef);
+        unless($self->_check_reconnect) {
             $self->on(connected => undef);
             $cb->($self->error);
         }

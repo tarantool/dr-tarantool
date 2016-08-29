@@ -54,10 +54,13 @@ sub error   { $_[0]->{error} }
 sub errno   { $_[0]->{errno} }
 sub reconnect_always    { $_[0]->{reconnect_always} }
 sub reconnect_period    { $_[0]->{reconnect_period} }
-sub timeout {
+sub request_timeout     { $_[0]->{request_timeout}  }
+sub connect_attempts    { $_[0]->{connect_attempts} }
+sub connect_tries       { $_[0]->{connect_tries}    }
+sub connect_timeout {
     my ($self) = @_;
-    return $self->{timeout} if @_ == 1;
-    return $self->{timeout} = $_[1];
+    return $self->{connect_timeout} if @_ == 1;
+    return $self->{connect_timeout} = $_[1];
 }
 
 
@@ -85,6 +88,7 @@ sub _check_reconnect {
     unless ($self->reconnect_always) {
         return unless $self->{success_connects};
     }
+    return if $self->connect_tries >= $self->connect_attempts;
 
     $self->{guard}{rc} = AE::timer $self->reconnect_period, 0, sub {
         return unless $self;
@@ -92,6 +96,7 @@ sub _check_reconnect {
         $self->{on}{reconnecting}($self);
         $self->connect;
     };
+    return 1;
 }
 
 sub connect {
@@ -103,6 +108,7 @@ sub connect {
     $self->{error} = undef;
     $self->{errno} = undef;
     $self->{guard} = {};
+    $self->{connect_tries}++;
 
     $self->{guard}{c} = AnyEvent::Socket::tcp_connect
         $self->host,
@@ -132,8 +138,8 @@ sub connect {
         }
     ;
 
-    if (defined $self->timeout) {
-        $self->{guard}{t} = AE::timer $self->timeout, 0, sub {
+    if (defined $self->connect_timeout) {
+        $self->{guard}{t} = AE::timer $self->connect_timeout, 0, sub {
             delete $self->{guard}{t};
             return unless $self->state eq 'connecting';
 
@@ -142,7 +148,7 @@ sub connect {
             $self->{state} = 'connfail';
             $self->{guard} = {};
             $self->{on}{connfail}($self);
-            $self->_check_reconnect;
+#            $self->_check_reconnect;
         };
     }
    
@@ -158,6 +164,7 @@ sub disconnect {
     $self->{errno} = 'SUCCESS';
     $self->{state} = 'disconnect';
     $self->{wbuf} = '';
+    $self->{connect_tries} = 0;
     close ($self->{fh}) if (exists $self->{fh} and $self->{fh});
     $self->{on}{disconnect}($self);
 }
