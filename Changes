@@ -1,3 +1,10 @@
+tarantool-perl repo (0.53)
+
+  * Added possibility to specify callbacks for connect events like error, connfail, closes: #12
+  * Added possibility to specify connect timeout and number of connect attempts, closes: #14
+
+ -- Pavel Limorenko <p.limorenko@corp.mail.ru> Mon, 29 Aug 2016 15:08:36 +0400
+
 tarantool-perl repo (0.52)
 
   * Fixed: sednings strings that looks_like_number() as strings

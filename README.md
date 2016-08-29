@@ -55,7 +55,7 @@ Here we pass one more argument to `connect()` method, which is callback to be in
 The other methods are to be invoked in a similar way, the functions prototypes and usage examples can be found in perldoc.
 
 ### Version
-0.52
+0.53
 
 ### Tech
 
@@ -79,8 +79,7 @@ Want to contribute? Great! It's github, open issues, send pull requests :)
 
 ### TODO
 
- - Fix problem with inserting of string with numbers
-   (for example '112') into the field of type 'STR'
+ - Make the way the errors are delivered from all methods clear
 
 ### License
 
