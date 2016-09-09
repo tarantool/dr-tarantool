@@ -94,6 +94,7 @@ sub _check_reconnect {
         return unless $self;
         delete $self->{guard}{rc};
         $self->{on}{reconnecting}($self);
+        $self->{_connect_cb} ||= sub { };
         $self->connect;
     };
     return 1;
