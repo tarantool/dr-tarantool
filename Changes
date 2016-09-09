@@ -1,3 +1,10 @@
+tarantool-perl repo (0.54)
+
+  * Fixed auth after reconnect, closes: #17
+
+ -- Pavel Limorenko <p.limorenko@corp.mail.ru> Fri, 9 Sep 2016 12:04:43 +0400
+
+
 tarantool-perl repo (0.53)
 
   * Added possibility to specify callbacks for connect events like error, connfail, closes: #12
