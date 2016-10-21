@@ -112,7 +112,7 @@ for my $cv (AE::cv) {
         ok exists $r->{CODE}, 'exists code';
         ok exists $r->{SYNC}, 'exists sync';
         ok exists $r->{ERROR}, 'exists error';
-        like $r->{ERROR} => qr[Execute access denied], 'error text';
+        like $r->{ERROR} => qr[Execute access (is )?denied], 'error text';
         $cv->end;
     });
 

@@ -26,6 +26,7 @@ sub new {
 
     $opts{on}{connected}    ||= sub {  };
     $opts{on}{connfail}     ||= sub {  };
+    $opts{on}{connfail_user}||= sub {  };
     $opts{on}{disconnect}   ||= sub {  };
     $opts{on}{error}        ||= sub {  };
     $opts{on}{reconnecting} ||= sub {  };
@@ -74,7 +75,13 @@ sub set_error {
     $self->{guard} = {};
     $self->{wbuf} = '';
 
-    $self->_check_reconnect;
+    if ($self->_check_reconnect) {
+        $self->{_connect_cb}  = sub { my $self = shift; $self->recall_requests };
+        $self->{on}{connfail} = sub { my $self = shift; $self->requests_failed };
+    }
+    else {
+        $self->requests_failed;
+    }
     
 }
 
@@ -119,8 +126,12 @@ sub connect {
             my ($fh) = @_;
             if ($fh) {
                 $self->{fh} = $fh;
+
                 $self->{state} = 'connected';
                 $self->{success_connects}++;
+                $self->{connect_tries} = 0;
+                $self->on(connfail => undef);
+
                 $self->push_write('') if length $self->{wbuf};
                 $self->{on}{connected}($self);
                 return;
@@ -130,9 +141,11 @@ sub connect {
             $self->{errno} = _errno;
             $self->{state} = 'connfail';
             $self->{guard} = {};
-            $self->{on}{connfail}($self);
+            unless ( $self->_check_reconnect ) {
+                $self->{on}{connfail_user}($self);
+                $self->{on}{connfail     }($self);
+            }
             return unless $self;
-            $self->_check_reconnect;
         },
         sub {
 
@@ -148,8 +161,10 @@ sub connect {
             $self->{errno} = 'ETIMEOUT';
             $self->{state} = 'connfail';
             $self->{guard} = {};
-            $self->{on}{connfail}($self);
-#            $self->_check_reconnect;
+            unless ( $self->_check_reconnect ) {
+                $self->{on}{connfail_user}($self);
+                $self->{on}{connfail     }($self);
+            }
         };
     }
    
@@ -194,6 +209,43 @@ sub push_write {
     };
 }
 
+sub read_while {
+    # has to be strong reference to be closured and not get destroyed while reading
+    my $self = shift;
+    my ($condition) = @_;
+
+    return unless grep { $condition eq $_ } qw(handshake requests);
+
+    $self->{read_while}{$condition} = 1;
+
+    return unless $self->state eq 'connected';
+    return if     $self->{guard}{read};
+
+    $self->{guard}{read} = AE::io $self->fh, 0, sub {
+        my $rd = sysread $self->fh, my $buf, 4096;
+        unless(defined $rd) {
+            return if $!{EINTR};
+
+            delete $self->{read_while};
+            $self->_fatal_error("Socket error: $!");
+            return;
+        }
+
+        unless($rd) {
+            delete $self->{read_while};
+            $self->_fatal_error("Socket error: Server closed connection");
+            return;
+        }
+        $self->{rbuf} .= $buf;
+        $self->_check_rbuf;
+
+        delete $self->{read_while}{handshake} unless $self->{handshake};
+        delete $self->{read_while}{requests } unless scalar keys %{ $self->{wait} };
+
+        return if scalar keys %{ $self->{read_while} };
+        delete $self->{guard}{read};
+    };
+}
 
 
 

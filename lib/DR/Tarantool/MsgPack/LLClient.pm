@@ -109,6 +109,7 @@ sub _check_rbuf {
 
         my $id = $resp->{SYNC};
         my $cb = delete $self->{ wait }{ $id };
+                 delete $self->{ req  }{ $id }; # not needed anymore
         if ('CODE' eq ref $cb) {
             $cb->( $resp );
         } else {
@@ -123,13 +124,6 @@ sub _fatal_error {
     my ($self, $msg, $raw) = @_;
     $self->{last_code} ||= -1;
     $self->{last_error_string} ||= $msg;
-
-    my $wait = delete $self->{wait};
-    $self->{wait} = {};
-    for (keys %$wait) {
-        my $cb = delete $wait->{$_};
-        $cb->({ status  => 'fatal',  ERROR  => $msg, SYNC => $_ }, $raw);
-    }
 
     $self->set_error($msg) if $self->state ne 'error';
 }
