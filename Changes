@@ -1,3 +1,10 @@
+tarantool-perl repo (0.55)
+
+  * Made socket read to be handled only when the request has been sent, closes: #18
+
+ -- Pavel Limorenko <p.limorenko@corp.mail.ru> Fri, 21 Oct 2016 19:29:26 12:04:43 +0400
+
+
 tarantool-perl repo (0.54)
 
   * Fixed auth after reconnect, closes: #17

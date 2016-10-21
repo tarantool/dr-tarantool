@@ -218,15 +218,10 @@ sub connect {
         $cb->($self);
     });
 
-    my $on_connfail = $self->{on}{connfail};
+    $self->on(connfail_user => $self->{on}{connfail});
     $self->on(connfail => sub {
         my ($self) = @_;
-        $on_connfail->($self);
-#        $self->on(connfail => undef);
-        unless($self->_check_reconnect) {
-            $self->on(connected => undef);
-            $cb->($self->error);
-        }
+        $cb->($self->error);
     });
 
     $self->SUPER::connect;
@@ -251,7 +246,7 @@ sub on_connected {
     sub {
         my ($self) = @_;
         $self->_reconnected;
-        $self->{guard}{read} = AE::io $self->fh, 0, $self->on_read;
+        $self->read_while("handshake");
     }
 }
 
@@ -715,8 +710,38 @@ sub _request {
         if $ENV{TNT_LOG_ERRDIR} or $ENV{TNT_LOG_DIR};
 
     $self->{ wait }{ $id } = $cbres;
+    $self->{ req  }{ $id } = $pkt;
 
     $self->push_write($pkt);
+    $self->read_while("requests");
+}
+
+sub recall_requests {
+    my ($self) = @_;
+
+    my $reqs = $self->{req };
+    my $cbs  = $self->{wait};
+
+    my @ids = keys %$reqs;
+
+    $self->_request( $_, $reqs->{$_}, $cbs->{$_} ) for @ids;
+}
+
+sub requests_failed {
+    my ($self) = @_;
+
+    my $msg = $self->{error};
+
+    my $wait = delete $self->{wait};
+    my $req  = delete $self->{req };
+
+    $self->{wait} = {};
+    $self->{req } = {};
+
+    for (keys %$wait) {
+        my $cb = delete $wait->{$_};
+        $cb->({ status  => 'fatal',  ERROR  => $msg, SYNC => $_ });
+    }
 }
 
 sub _req_id {
