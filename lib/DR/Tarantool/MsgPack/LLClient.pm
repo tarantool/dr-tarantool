@@ -108,8 +108,7 @@ sub _check_rbuf {
         $self->{last_error_string} = $resp->{ERROR};
 
         my $id = $resp->{SYNC};
-        my $cb = delete $self->{ wait }{ $id };
-                 delete $self->{ req  }{ $id }; # not needed anymore
+        my $cb = ( delete $self->{ wait }{ $id } )->{ cb }; # take only cb
         if ('CODE' eq ref $cb) {
             $cb->( $resp );
         } else {

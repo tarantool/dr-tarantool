@@ -709,8 +709,10 @@ sub _request {
     $cbres = sub { $self->_log_transaction($id, $pkt, @_); &$cb }
         if $ENV{TNT_LOG_ERRDIR} or $ENV{TNT_LOG_DIR};
 
-    $self->{ wait }{ $id } = $cbres;
-    $self->{ req  }{ $id } = $pkt;
+    $self->{ wait }{ $id } = {
+        cb  => $cbres,
+        pkt => $pkt,
+    };
 
     $self->push_write($pkt);
     $self->read_while("requests");
@@ -719,12 +721,14 @@ sub _request {
 sub recall_requests {
     my ($self) = @_;
 
-    my $reqs = $self->{req };
-    my $cbs  = $self->{wait};
+    my @ids = sort {$a <=> $b} keys %{ $self->{wait} };
 
-    my @ids = keys %$reqs;
+    for my $id (@ids) {
+        my $cb  = $self->{ wait }{ $id }{ cb  };
+        my $pkt = $self->{ wait }{ $id }{ pkt };
 
-    $self->_request( $_, $reqs->{$_}, $cbs->{$_} ) for @ids;
+        $self->_request( $id, $pkt, $cb );
+    }
 }
 
 sub requests_failed {
@@ -732,15 +736,13 @@ sub requests_failed {
 
     my $msg = $self->{error};
 
-    my $wait = delete $self->{wait};
-    my $req  = delete $self->{req };
-
+    my $wait = $self->{wait};
     $self->{wait} = {};
-    $self->{req } = {};
 
-    for (keys %$wait) {
-        my $cb = delete $wait->{$_};
-        $cb->({ status  => 'fatal',  ERROR  => $msg, SYNC => $_ });
+    my @ids = sort {$a <=> $b} keys %$wait;
+
+    for my $id (@ids) {
+        $wait->{ $id }{ cb }( { status  => 'fatal',  ERROR  => $msg, SYNC => $id } );
     }
 }
 
@@ -765,8 +767,11 @@ sub _fatal_error {
 
     my $wait = delete $self->{wait};
     $self->{wait} = {};
-    for (keys %$wait) {
-        my $cb = delete $wait->{$_};
+
+    my @ids = sort {$a <=> $b} keys %$wait;
+
+    for my $id (@ids) {
+        my $cb = ( delete $wait->{ $id } )->{ cb };
         $cb->({ status  => 'fatal',  errstr  => $msg, req_id => $_ }, $raw);
     }
 
@@ -798,7 +803,7 @@ sub _check_rbuf {{
     }
 
     my $id = $res->{req_id};
-    my $cb = delete $self->{ wait }{ $id };
+    my $cb = ( delete $self->{ wait }{ $id } )->{ cb };
     if ('CODE' eq ref $cb) {
         $cb->( $res, $pkt );
     } else {
