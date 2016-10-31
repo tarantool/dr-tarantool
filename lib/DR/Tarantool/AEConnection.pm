@@ -53,17 +53,27 @@ sub host    { $_[0]->{host} }
 sub port    { $_[0]->{port} }
 sub error   { $_[0]->{error} }
 sub errno   { $_[0]->{errno} }
-sub reconnect_always    { $_[0]->{reconnect_always} }
-sub reconnect_period    { $_[0]->{reconnect_period} }
-sub request_timeout     { $_[0]->{request_timeout}  }
-sub connect_attempts    { $_[0]->{connect_attempts} }
-sub connect_tries       { $_[0]->{connect_tries}    }
-sub connect_timeout {
-    my ($self) = @_;
-    return $self->{connect_timeout} if @_ == 1;
-    return $self->{connect_timeout} = $_[1];
-}
 
+{
+    my @methods = qw/
+        reconnect_always
+        reconnect_period
+        request_timeout
+        connect_attempts
+        connect_tries
+        connect_timeout
+    /;
+    no strict 'refs';
+
+    for my $method (@methods) {
+        *$method = sub {
+            my ($self) = @_;
+            return $self->{$method} if @_ == 1;
+            return $self->{$method} = $_[1];
+
+        }
+    }
+}
 
 sub set_error {
     my ($self, $error, $errno) = @_;
@@ -76,6 +86,7 @@ sub set_error {
     $self->{wbuf} = '';
 
     if ($self->_check_reconnect) {
+        $self->reset_requests_timers;
         $self->{_connect_cb}  = sub { my $self = shift; $self->recall_requests };
         $self->{on}{connfail} = sub { my $self = shift; $self->requests_failed };
     }
@@ -153,6 +164,7 @@ sub connect {
     ;
 
     if (defined $self->connect_timeout) {
+        AE::now_update;
         $self->{guard}{t} = AE::timer $self->connect_timeout, 0, sub {
             delete $self->{guard}{t};
             return unless $self->state eq 'connecting';
