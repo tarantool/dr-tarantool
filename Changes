@@ -1,8 +1,18 @@
+tarantool-perl repo (0.56)
+
+  * Fixed memleak when performing request, closes: #20
+  * Implemented request_timeout, closes: #19
+  * Made connection settings accessors to be available for AsyncClient object
+  * Made reconnect() method for AsyncClient object (to be used with disconnect())
+
+ -- Pavel Limorenko <p.limorenko@corp.mail.ru> Mon, 31 Oct 2016 12:19:26 +0400
+
+
 tarantool-perl repo (0.55)
 
   * Made socket read to be handled only when the request has been sent, closes: #18
 
- -- Pavel Limorenko <p.limorenko@corp.mail.ru> Fri, 21 Oct 2016 19:29:26 12:04:43 +0400
+ -- Pavel Limorenko <p.limorenko@corp.mail.ru> Fri, 21 Oct 2016 19:29:26 +0400
 
 
 tarantool-perl repo (0.54)
