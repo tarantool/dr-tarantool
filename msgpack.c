@@ -95,7 +95,7 @@ void _mpack_item(SV *res, SV *o)
 
                     SV *key = k;
                     if (looks_like_number(key)) {
-                        key = newSVnv( (NV) SvNV(key) );
+                        key = sv_2mortal(newSVnv( (NV) SvNV(key) ));
                     }
 					_mpack_item(res, key);
 					_mpack_item(res, v);
