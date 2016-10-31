@@ -199,6 +199,8 @@ sub connect {
     my $connect_timeout     = $opts{connect_timeout};
     my $connect_attempts    = $opts{connect_attempts} || 1;
 
+    my $request_timeout     = $opts{request_timeout};
+
     my $self = $class->SUPER::new(
         host                => $host,
         port                => $port,
@@ -209,6 +211,8 @@ sub connect {
 
         connect_timeout     => $connect_timeout,
         connect_attempts    => $connect_attempts,
+
+        request_timeout     => $request_timeout,
     );
 
     $self->on(connected => sub {
@@ -354,6 +358,7 @@ sub ping :method {
     my $this = $self;
     weaken $this;
 
+    AE::now_update;
     my $tmr;
     $tmr = AE::timer $self->reconnect_period, 0, sub {
         undef $tmr;
@@ -709,13 +714,30 @@ sub _request {
     $cbres = sub { $self->_log_transaction($id, $pkt, @_); &$cb }
         if $ENV{TNT_LOG_ERRDIR} or $ENV{TNT_LOG_DIR};
 
+
     $self->{ wait }{ $id } = {
         cb  => $cbres,
         pkt => $pkt,
     };
 
+    if ($self->request_timeout) {
+
+        Scalar::Util::weaken(my $weak_self = $self);
+        AE::now_update;
+
+        $self->{ wait }{ $id }{ timer } = AE::timer $self->request_timeout, 0,
+            sub { $weak_self->_fatal_error("Request #$id timed out") }
+       ;
+    }
+
     $self->push_write($pkt);
     $self->read_while("requests");
+}
+
+sub reset_requests_timers {
+    my ($self) = @_;
+
+    delete $_->{timer} for values %{ $self->{wait} };
 }
 
 sub recall_requests {

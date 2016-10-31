@@ -104,6 +104,8 @@ sub connect {
     my $connect_timeout     = $opts{connect_timeout};
     my $connect_attempts    = $opts{connect_attempts} || 1;
 
+    my $request_timeout     = $opts{request_timeout};
+
 
     DR::Tarantool::MsgPack::LLClient->connect(
         host                => $host,
@@ -117,6 +119,8 @@ sub connect {
 
         connect_timeout     => $connect_timeout,
         connect_attempts    => $connect_attempts,
+
+        request_timeout     => $request_timeout,
 
         sub {
             my ($client) = @_;
@@ -138,9 +142,33 @@ sub connect {
     return;
 }
 
-sub disconnect {
-    my ( $self, $cb ) = @_;
-    $self->_llc->disconnect($cb);
+{
+    # LLC methods to be set for $self->_llc
+    my @methods = qw/
+        disconnect
+        reconnect_always
+        reconnect_period
+        request_timeout
+        connect_attempts
+        connect_tries
+        connect_timeout
+    /;
+    no strict 'refs';
+
+    for my $method (@methods) {
+        *$method = sub { shift->_llc->$method(shift) }
+    }
+}
+
+sub reconnect {
+    my $self = shift;
+    my $cb   = shift;
+
+    croak 'Callback must be CODEREF' unless 'CODE' eq ref $cb;
+
+    $self->_llc->{_connect_cb} = $cb;
+    DR::Tarantool::LLClient::connect($self->_llc);
+
     return;
 }
 
