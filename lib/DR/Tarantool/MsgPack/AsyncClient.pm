@@ -65,6 +65,7 @@ use DR::Tarantool::MsgPack::LLClient;
 use DR::Tarantool::Spaces;
 use DR::Tarantool::Tuple;
 use DR::Tarantool::Constants;
+use DR::Tarantool::MsgPack::AsyncClientInit;
 use Carp;
 $Carp::Internal{ (__PACKAGE__) }++;
 use Scalar::Util ();
@@ -82,6 +83,13 @@ sub connect {
     }
 
     $class->_llc->_check_cb( $cb );
+
+    if (delete $opts{lazy}) {
+        DR::Tarantool::MsgPack::AsyncClientInit->new(
+            %opts, $cb
+        );
+        return;
+    }
 
     my $host = $opts{host} || 'localhost';
     my $port = $opts{port} or croak "port isn't defined";
