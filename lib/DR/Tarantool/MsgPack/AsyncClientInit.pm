@@ -11,7 +11,7 @@ use DR::Tarantool::MsgPack::AsyncClient;
 
 =head1 NAME
 
-DR::Tarantool::MsgPack::AsyncClientInit - wrapper for AsyncClinet for lazy connects and reconnects.
+DR::Tarantool::MsgPack::AsyncClientInit - wrapper for AsyncClient for lazy connects and reconnects.
 
 =head1 SYNOPSIS
 
@@ -52,6 +52,7 @@ my %supported_methods = map {$_ => 1} qw/
    last_error_string
 
    disconnect
+
    reconnect_always
    reconnect_period
    request_timeout
@@ -60,6 +61,23 @@ my %supported_methods = map {$_ => 1} qw/
    connect_timeout
 /;
 
+my %setup_methods = map {$_ => 1} qw/
+   reconnect_always
+   reconnect_period
+   request_timeout
+   connect_attempts
+   connect_tries
+   connect_timeout
+/;
+
+my %client_methods = map {$_ => 1} qw/
+   last_code
+   last_error_string
+
+   disconnect
+/;
+
+
 sub AUTOLOAD {
     Scalar::Util::weaken(my $self = shift);
     my @call_opts = @_;
@@ -67,16 +85,11 @@ sub AUTOLOAD {
     my $method = $AUTOLOAD;
     $method =~ s/.*AsyncClientInit:://;
 
-    unless ($supported_methods{$method}) {
-        my $cb  = pop;
-        my $err = "unsupported method $method";
+    my $fail_cb = pop;
+       $fail_cb = ref $fail_cb eq "CODE" ? $fail_cb : sub { carp @_ };
 
-        if (ref $cb eq "CODE") {
-            $cb->($err);
-        }
-        else {
-            carp $err;
-        }
+    unless ($supported_methods{$method}) {
+        $fail_cb->("unsupported method $method");
         return;
     }
 
@@ -87,10 +100,21 @@ sub AUTOLOAD {
     };
 
     unless ($self->{client}) {
+        if ($setup_methods{$method}) {
+            $self->{opts}{$method} = shift @call_opts;
+            return;
+        }
+        return if $client_methods{$method};
+
         DR::Tarantool::MsgPack::AsyncClient->connect(
             %{ $self->{opts} }, 
             sub {
-                $self->{client} = shift;
+                my $client = shift;
+                unless (ref $client) {
+                    $fail_cb->($client);
+                    return;
+                }
+                $self->{client} = $client;
                 $callback->()
             }
         );

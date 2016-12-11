@@ -174,6 +174,7 @@ sub reconnect {
 
     croak 'Callback must be CODEREF' unless 'CODE' eq ref $cb;
 
+    $self->_llc->on(connfail => $cb);
     $self->_llc->{_connect_cb} = $cb;
     DR::Tarantool::LLClient::connect($self->_llc);
 
