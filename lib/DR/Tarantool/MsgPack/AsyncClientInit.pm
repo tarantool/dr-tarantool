@@ -48,6 +48,9 @@ my %supported_methods = map {$_ => 1} qw/
    delete
    call_lua
 
+   last_code
+   last_error_string
+
    disconnect
    reconnect_always
    reconnect_period
@@ -99,9 +102,7 @@ sub AUTOLOAD {
         return;
     }
 
-    $callback->();
-
-    return;
+    return $callback->();
 }
 
 sub DESTROY {
