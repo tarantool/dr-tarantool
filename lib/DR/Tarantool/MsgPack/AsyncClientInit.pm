@@ -121,6 +121,11 @@ sub AUTOLOAD {
         return;
     }
 
+    if ($setup_methods{$method}) {
+        $callback->();
+        return;
+    }
+
     unless ($self->{client}->_llc->is_connected) {
         $self->{client}->reconnect($callback);
         return;

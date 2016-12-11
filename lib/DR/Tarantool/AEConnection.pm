@@ -157,6 +157,8 @@ sub connect {
             unless ( $self->_check_reconnect ) {
                 $self->{on}{connfail_user}($self);
                 $self->{on}{connfail     }($self);
+
+                $self->{connect_tries} = 0;
             }
             return unless $self;
         },
@@ -178,6 +180,8 @@ sub connect {
             unless ( $self->_check_reconnect ) {
                 $self->{on}{connfail_user}($self);
                 $self->{on}{connfail     }($self);
+
+                $self->{connect_tries} = 0;
             }
         };
     }
