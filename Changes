@@ -1,3 +1,12 @@
+tarantool-perl repo (0.57)
+
+  * Added lazy=>1 connect, all connection issues are hidden from user, closes: #21
+  * Added {on}{connected} user callback support to track if the connection has been established
+  * Fixed bug with number of connect attempts when connection has previously been established and lost then
+
+ -- Pavel Limorenko <p.limorenko@corp.mail.ru> Sun, 11 Dec 2016 20:01:31 +0400
+
+
 tarantool-perl repo (0.56)
 
   * Fixed memleak when performing request, closes: #20

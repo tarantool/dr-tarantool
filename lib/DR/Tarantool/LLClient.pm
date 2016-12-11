@@ -215,6 +215,7 @@ sub connect {
         request_timeout     => $request_timeout,
     );
 
+    $self->on(connected_user => $self->{on}{connected});
     $self->on(connected => sub {
         my ($self) = @_;
         $self->on(connected => $self->on_connected);

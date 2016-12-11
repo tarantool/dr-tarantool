@@ -24,6 +24,7 @@ sub new {
     croak 'port is undefined' unless $opts{port};
 
 
+    $opts{on}{connected_user} ||= sub {  };
     $opts{on}{connected}    ||= sub {  };
     $opts{on}{connfail}     ||= sub {  };
     $opts{on}{connfail_user}||= sub {  };
@@ -145,6 +146,7 @@ sub connect {
 
                 $self->push_write('') if length $self->{wbuf};
                 $self->{on}{connected}($self);
+                $self->{on}{connected_user}($self);
                 return;
             }
     
@@ -155,6 +157,8 @@ sub connect {
             unless ( $self->_check_reconnect ) {
                 $self->{on}{connfail_user}($self);
                 $self->{on}{connfail     }($self);
+
+                $self->{connect_tries} = 0;
             }
             return unless $self;
         },
@@ -176,6 +180,8 @@ sub connect {
             unless ( $self->_check_reconnect ) {
                 $self->{on}{connfail_user}($self);
                 $self->{on}{connfail     }($self);
+
+                $self->{connect_tries} = 0;
             }
         };
     }
