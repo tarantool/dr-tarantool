@@ -107,7 +107,7 @@ sub connect {
     my $reconnect_period    = $opts{reconnect_period} || 0;
     my $reconnect_always    = $opts{reconnect_always} || 0;
 
-    my $on_callbacks        = $opts{on} || {};
+    my $on_callbacks        = { %{ $opts{on} || {} } };
 
     my $connect_timeout     = $opts{connect_timeout};
     my $connect_attempts    = $opts{connect_attempts} || 1;
