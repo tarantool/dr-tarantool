@@ -108,13 +108,14 @@ sub _check_rbuf {
         $self->{last_error_string} = $resp->{ERROR};
 
         my $id = $resp->{SYNC};
-        my $cb = ( delete $self->{ wait }{ $id } )->{ cb }; # take only cb
-        if ('CODE' eq ref $cb) {
-            $cb->( $resp );
-        } else {
-            warn "Unexpected reply from tarantool with id = $id";
+
+        my $wait = delete $self->{ wait }{ $id };
+        unless ($wait) {
+            warn "Unexpected reply from tarantool ($self->{host}:$self->{port}) with id = $id: ". Data::Dumper->new([ $resp ])->Indent(0)->Terse(1)->Dump();
+            next;
         }
 
+        $wait->{ cb }( $resp );
     }
 }
 

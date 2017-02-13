@@ -1,3 +1,10 @@
+tarantool-perl repo (0.58)
+
+  * Fixed 'die' on unexpected reply from tarantool
+
+ -- Pavel Limorenko <p.limorenko@corp.mail.ru> Mon, 13 Feb 2017 11:39:19 +0400
+
+
 tarantool-perl repo (0.57)
 
   * Added lazy=>1 connect, all connection issues are hidden from user, closes: #21
