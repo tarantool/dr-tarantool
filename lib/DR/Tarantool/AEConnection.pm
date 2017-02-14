@@ -86,6 +86,11 @@ sub set_error {
     $self->{guard} = {};
     $self->{wbuf} = '';
 
+    if ($self->{fh}) {
+        close  $self->{fh};
+        delete $self->{fh};
+    }
+
     if ($self->_check_reconnect) {
         $self->reset_requests_timers;
         $self->{_connect_cb}  = sub { my $self = shift; $self->recall_requests };
