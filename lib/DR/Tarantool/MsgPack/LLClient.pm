@@ -111,7 +111,7 @@ sub _check_rbuf {
 
         my $wait = delete $self->{ wait }{ $id };
         unless ($wait) {
-            warn "Unexpected reply from tarantool ($self->{host}:$self->{port}) with id = $id: ". Data::Dumper->new([ $resp ])->Indent(0)->Terse(1)->Dump();
+            warn "Unexpected reply from tarantool ($self->{host}:$self->{port}) with id = $id";
             next;
         }
 
