@@ -214,7 +214,7 @@ sub _load_schema {
                     {
                         name   => $raw->[2],
                         fields => [
-                                    map { $_->{type} = uc($_->{type}); $_ }
+                                    map { $_->{type} = uc($_->{type}) if $_->{type}; $_ }
                                         @{ ref $raw->[6] eq 'ARRAY' ? $raw->[6] : [$raw->[6]] }
                                   ],
                     }
