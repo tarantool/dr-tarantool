@@ -214,7 +214,7 @@ sub _load_schema {
                     {
                         name   => $raw->[2],
                         fields => [
-                                    map { $_->{type} = uc($_->{type}); $_ }
+                                    map { $_->{type} = uc($_->{type}) if $_->{type}; $_ }
                                         @{ ref $raw->[6] eq 'ARRAY' ? $raw->[6] : [$raw->[6]] }
                                   ],
                     }
@@ -280,7 +280,7 @@ sub _load_schema {
             }
         }
         $self->{spaces} = DR::Tarantool::Spaces->new(\%spaces);
-        $self->{spaces}->family(2);
+        $self->{spaces}->family(2); # so DR::Tarantool::Spaces::pack_field/unpack_field() not used
 
         $self->set_schema_id($cb);
     };

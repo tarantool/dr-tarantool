@@ -260,7 +260,7 @@ sub new {
         unless $name and $name =~ /^[a-z_]\w*$/i;
 
 
-    my $fqr = qr{^(?:STR|NUM|NUM64|INT|INT64|UTF8STR|JSON|MONEY|BIGMONEY)$};
+    my $fqr = qr{^(?:STR|STRING|NUM|NUM64|INT|INTEGER|INT64|UTF8STR|JSON|MONEY|BIGMONEY|UNSIGNED|UINT|SCALAR|NUMBER|\*)$};
 
     my (@fields, %fast, $default_type);
     $default_type = $space->{default_type} || 'STR';
@@ -469,11 +469,11 @@ sub pack_field {
 
     my $v = $value;
     utf8::encode( $v ) if utf8::is_utf8( $v );
-    return $v if $type eq 'STR' or $type eq 'UTF8STR';
-    return pack "L$LE" => $v if $type eq 'NUM';
-    return pack "l$LE" => $v if $type eq 'INT';
-    return pack "Q$LE" => $v if $type eq 'NUM64';
-    return pack "q$LE" => $v if $type eq 'INT64';
+    return $v                if grep { $type eq $_ } qw/STR STRING UTF8STR/;
+    return pack "L$LE" => $v if grep { $type eq $_ } qw/NUM UINT UNSIGNED/;
+    return pack "l$LE" => $v if grep { $type eq $_ } qw/INT INTEGER/;
+    return pack "Q$LE" => $v if grep { $type eq $_ } qw/NUM64/;
+    return pack "q$LE" => $v if grep { $type eq $_ } qw/INT64/;
 
     if ($type eq 'MONEY' or $type eq 'BIGMONEY') {
         my ($r, $k) = split /\./, $v;
