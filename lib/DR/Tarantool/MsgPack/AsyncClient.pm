@@ -305,7 +305,9 @@ sub _cb_default {
         if ( $error_name and $error_name eq 'ER_WRONG_SCHEMA_VERSION' ) {
             $connect_obj->{SCHEMA_ID} = undef;
             $connect_obj->{spaces}    = undef;
-            $connect_obj->_load_schema($caller_sub);
+            $connect_obj->_load_schema(
+                sub { $caller_sub->(shift, $caller_sub) }
+            );
             return;
         }
 
@@ -502,17 +504,16 @@ sub insert {
     my $sno;
     my $s;
 
-    my $subref = undef;
-    $subref = sub {
-        my $self = shift;
+    my $subref = sub {
+        my $self        = shift;
+        my $subref_self = shift;
         $self->_llc->insert(
             $sno,
             $tuple,
             $self->{SCHEMA_ID},
             sub {
                 my ($res) = @_;
-                Scalar::Util::weaken($subref) unless Scalar::Util::isweak($subref);
-                _cb_default($res, $s, $cb, $self, $subref);
+                _cb_default($res, $s, $cb, $self, $subref_self);
             }
         );
     };
@@ -534,14 +535,14 @@ sub insert {
                  $sno = $s->number,
                  $tuple = $s->pack_tuple( $tuple );
 
-                 $subref->($self);
+                 $subref->($self, $subref);
                  return;
             } => 'remove old');
             return;
         }
     }
 
-    $subref->($self);
+    $subref->($self, $subref);
     return;
 }
 
@@ -557,17 +558,16 @@ sub replace {
     my $sno;
     my $s;
 
-    my $subref = undef;
-    $subref = sub {
-        my $self = shift;
+    my $subref = sub {
+        my $self        = shift;
+        my $subref_self = shift;
         $self->_llc->replace(
             $sno,
             $tuple,
             $self->{SCHEMA_ID},
             sub {
                 my ($res) = @_;
-                Scalar::Util::weaken($subref) unless Scalar::Util::isweak($subref);
-                _cb_default($res, $s, $cb, $self, $subref);
+                _cb_default($res, $s, $cb, $self, $subref_self);
             }
         );
     };
@@ -589,14 +589,14 @@ sub replace {
                  $sno = $s->number,
                  $tuple = $s->pack_tuple( $tuple );
 
-                 $subref->($self);
+                 $subref->($self, $subref);
                  return;
             } => 'remove old');
             return;
         }
     }
 
-    $subref->($self);
+    $subref->($self, $subref);
     return;
 }
 
@@ -612,17 +612,16 @@ sub delete :method {
     my $sno;
     my $s;
 
-    my $subref = undef;
-    $subref = sub {
-        my $self = shift;
+    my $subref = sub {
+        my $self        = shift;
+        my $subref_self = shift;
         $self->_llc->delete(
             $sno,
             $key,
             $self->{SCHEMA_ID},
             sub {
                 my ($res) = @_;
-                Scalar::Util::weaken($subref) unless Scalar::Util::isweak($subref);
-                _cb_default($res, $s, $cb, $self, $subref);
+                _cb_default($res, $s, $cb, $self, $subref_self);
             }
         );
     };
@@ -642,14 +641,14 @@ sub delete :method {
                  $s = $self->{spaces}->space($space);
                  $sno = $s->number,
 
-                 $subref->($self);
+                 $subref->($self, $subref);
                  return;
             } => 'remove old');
             return;
         }
     }
 
-    $subref->($self);
+    $subref->($self, $subref);
     return;
 }
 
@@ -666,9 +665,9 @@ sub select :method {
     my $ino;
     my $s;
 
-    my $subref = undef;
-    $subref = sub {
-        my $self = shift;
+    my $subref = sub {
+        my $self        = shift;
+        my $subref_self = shift;
         $self->_llc->select(
             $sno,
             $ino,
@@ -679,8 +678,7 @@ sub select :method {
             $self->{SCHEMA_ID},
             sub {
                 my ($res) = @_;
-                Scalar::Util::weaken($subref) unless Scalar::Util::isweak($subref);
-                _cb_default($res, $s, $cb, $self, $subref);
+                _cb_default($res, $s, $cb, $self, $subref_self);
             }
         );
     };
@@ -705,13 +703,13 @@ sub select :method {
                  $sno = $s->number;
                  $ino = $s->_index( $index )->{no};
 
-                 $subref->($self);
+                 $subref->($self, $subref);
                  return;
             } => 'remove old');
             return;
         }
     }
-    $subref->($self);
+    $subref->($self, $subref);
     return;
 }
 
@@ -726,9 +724,9 @@ sub update :method {
     my $sno;
     my $s;
 
-    my $subref = undef;
-    $subref = sub {
-        my $self = shift;
+    my $subref = sub {
+        my $self        = shift;
+        my $subref_self = shift;
         $self->_llc->update(
             $sno,
             $key,
@@ -736,8 +734,7 @@ sub update :method {
             $self->{SCHEMA_ID},
             sub {
                 my ($res) = @_;
-                Scalar::Util::weaken($subref) unless Scalar::Util::isweak($subref);
-                _cb_default($res, $s, $cb, $self, $subref);
+                _cb_default($res, $s, $cb, $self, $subref_self);
             }
         );
     };
@@ -759,14 +756,14 @@ sub update :method {
                  $sno = $s->number;
                  $ops = $s->pack_operations($ops);
 
-                 $subref->($self);
+                 $subref->($self, $subref);
                  return;
             } => 'remove old');
             return;
         }
     }
 
-    $subref->($self);
+    $subref->($self, $subref);
     return;
 }
 
@@ -781,9 +778,9 @@ sub upsert :method {
     my $sno;
     my $s;
 
-    my $subref = undef;
-    $subref = sub {
-        my $self = shift;
+    my $subref = sub {
+        my $self        = shift;
+        my $subref_self = shift;
         $self->_llc->upsert(
             $sno,
             $tuple,
@@ -791,8 +788,7 @@ sub upsert :method {
             $self->{SCHEMA_ID},
             sub {
                 my ($res) = @_;
-                Scalar::Util::weaken($subref) unless Scalar::Util::isweak($subref);
-                _cb_default($res, $s, $cb, $self, $subref);
+                _cb_default($res, $s, $cb, $self, $subref_self);
             }
         );
     };
@@ -814,14 +810,14 @@ sub upsert :method {
                  $sno = $s->number;
                  $ops = $s->pack_operations($ops);
 
-                 $subref->($self);
+                 $subref->($self, $subref);
                  return;
             } => 'remove old');
             return;
         }
     }
 
-    $subref->($self);
+    $subref->($self, $subref);
     return;
 }
 
