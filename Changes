@@ -1,3 +1,11 @@
+tarantool-perl repo (0.60)
+
+  * Fixed: new data types in Tarantool, not to fall while schema downloading, closes #22
+  * Fixed: soft schema reload, closes #24
+
+ -- Pavel Limorenko <pavel@limorenko.com> Sub, 20 Aug 2017 19:42:00 +0400
+
+
 tarantool-perl repo (0.59)
 
   * Fixed: correctly close tarantool connection on fatal error (timeout, error from tarantool)
